@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../../core/design_system/household_design_system.dart';
+
 class Skeleton extends StatelessWidget {
   const Skeleton({super.key, required this.height, this.width = double.infinity, this.radius = 20, this.dark = false});
 
@@ -18,7 +20,7 @@ class Skeleton extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: HouseholdColors.card,
           borderRadius: BorderRadius.circular(radius),
         ),
       ),

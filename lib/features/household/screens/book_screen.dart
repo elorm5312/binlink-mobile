@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:flutter_svg/flutter_svg.dart';
@@ -49,6 +51,15 @@ class _BookScreenState extends State<BookScreen> {
   int _extraBags = 0;
   double _weightKg = 100;
 
+  // Step 2 — bulky items (photos so the collector can see the load)
+  final List<XFile> _bulkyPhotos = [];
+  final _bulkyDescCtrl = TextEditingController();
+
+  /// HOUSEHOLD waste has fixed bin-size pricing; everything else (recyclables
+  /// and bulky items) is priced by the collector on arrival.
+  bool get _isFixed => _category == 'HOUSEHOLD';
+  bool get _isBulky => _category == 'BULKY';
+
   // Step 3
   late bool _isImmediate;
   DateTime? _scheduledDate;
@@ -88,6 +99,7 @@ class _BookScreenState extends State<BookScreen> {
     _addrCtrl.dispose();
     _notesCtrl.dispose();
     _promoCtrl.dispose();
+    _bulkyDescCtrl.dispose();
     super.dispose();
   }
 
@@ -120,6 +132,12 @@ class _BookScreenState extends State<BookScreen> {
   double get _grossTotal => _base + _bagsTotal + _kServiceFee;
   double get _total => (_grossTotal - _promoDiscount).clamp(0, double.infinity).toDouble();
 
+  Future<void> _pickBulkyPhoto(ImageSource source) async {
+    if (_bulkyPhotos.length >= 8) return;
+    final img = await ImagePicker().pickImage(source: source, maxWidth: 1600, imageQuality: 82);
+    if (img != null && mounted) setState(() => _bulkyPhotos.add(img));
+  }
+
   Future<void> _applyPromo() async {
     final code = _promoCtrl.text.trim();
     if (code.isEmpty || _promoChecking) return;
@@ -148,6 +166,7 @@ class _BookScreenState extends State<BookScreen> {
 
   bool get _canNext {
     switch (_step) {
+      case 1: return !_isBulky || _bulkyPhotos.isNotEmpty;
       case 2: return _isImmediate || _scheduledDate != null;
       case 3: return _addrCtrl.text.trim().isNotEmpty;
       default: return true;
@@ -185,21 +204,51 @@ class _BookScreenState extends State<BookScreen> {
     }
     setState(() { _loading = true; _error = null; });
     final prov = context.read<HouseholdProvider>();
+
+    // Upload any attached rubbish photos first so the collector can see the
+    // load the moment the job is dispatched (required for bulky, optional for
+    // every other category).
+    List<String>? photoUrls;
+    if (_bulkyPhotos.isNotEmpty) {
+      photoUrls = [];
+      for (final photo in _bulkyPhotos) {
+        final url = await prov.uploadBulkyPhoto(photo.path);
+        if (url != null) photoUrls.add(url);
+      }
+      if (photoUrls.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _loading = false;
+          _error = 'Photo upload failed. Please check your connection and try again.';
+        });
+        return;
+      }
+    }
+
+    final bulkyDesc = _bulkyDescCtrl.text.trim();
+    final notes = [
+      if (_isBulky && bulkyDesc.isNotEmpty) 'Items: $bulkyDesc',
+      if (_notesCtrl.text.trim().isNotEmpty) _notesCtrl.text.trim(),
+    ].join('\n');
+
     final booking = await prov.createBooking(
       binSize: _binSize,
-      extraBags: _extraBags,
+      extraBags: _isFixed ? _extraBags : 0,
       pickupAddress: addr,
       pickupLat: _lat!,
       pickupLng: _lng!,
-      paymentMethod: _payment,
+      // Negotiated bookings are always paid on pickup, directly to the collector.
+      paymentMethod: _isFixed ? _payment : 'CASH',
       wasteCategory: _category,
       timePreference: _isImmediate ? null : _timePref,
       estimatedWeightKg: _weightKg > 0 ? _weightKg : null,
-      addressNotes: _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
+      addressNotes: notes.isNotEmpty ? notes : null,
       scheduledDate: _isImmediate ? null : _scheduledDate,
       frequency: _frequency != 'ONE_TIME' ? _frequency : null,
       preferredCollectorId: widget.preferredCollectorId,
-      promoCode: _promoCode,
+      promoCode: _isFixed ? _promoCode : null,
+      pricingMode: _isFixed ? null : 'NEGOTIATED',
+      bulkyPhotos: photoUrls,
     );
     if (!mounted) return;
     setState(() => _loading = false);
@@ -208,7 +257,9 @@ class _BookScreenState extends State<BookScreen> {
       return;
     }
     prov.listenToBooking(booking['id'] as String);
-    if (_payment == 'CASH') {
+    // Negotiated bookings have nothing to pay in-app — the price is agreed on
+    // arrival and paid directly to the collector.
+    if (_payment == 'CASH' || !_isFixed) {
       Navigator.of(context).pushReplacement(MaterialPageRoute(
         builder: (_) => TrackingScreen(booking: booking),
       ));
@@ -238,7 +289,7 @@ class _BookScreenState extends State<BookScreen> {
                   border: Border.all(color: HouseholdColors.primary.withAlpha(60)),
                 ),
                 child: Row(children: [
-                  const HIcon('star', color: HouseholdColors.primary, size: 18),
+                  HIcon('star', color: HouseholdColors.primary, size: 18),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text('Requesting ${widget.preferredCollectorName} first',
@@ -259,12 +310,17 @@ class _BookScreenState extends State<BookScreen> {
               children: [
                 _Step1(category: _category, onChanged: (v) => setState(() => _category = v)),
                 _Step2(
+                  category: _category,
                   binSize: _binSize,
                   extraBags: _extraBags,
                   weightKg: _weightKg,
+                  bulkyPhotos: _bulkyPhotos,
+                  bulkyDescCtrl: _bulkyDescCtrl,
                   onBin: (v) => setState(() => _binSize = v),
                   onBags: (v) => setState(() => _extraBags = v),
                   onWeight: (v) => setState(() => _weightKg = v),
+                  onAddPhoto: _pickBulkyPhoto,
+                  onRemovePhoto: (i) => setState(() => _bulkyPhotos.removeAt(i)),
                 ),
                 _Step3(
                   isImmediate: _isImmediate,
@@ -286,6 +342,7 @@ class _BookScreenState extends State<BookScreen> {
                 ),
                 _Step5(
                   category: _category,
+                  bulkyPhotoCount: _bulkyPhotos.length,
                   binSize: _binSize,
                   extraBags: _extraBags,
                   isImmediate: _isImmediate,
@@ -341,9 +398,9 @@ class _StepBar extends StatelessWidget {
               height: 30,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: done || active ? HouseholdColors.primary : Colors.white,
+                color: done || active ? HouseholdColors.primary : HouseholdColors.card,
                 border: Border.all(
-                  color: done || active ? HouseholdColors.primary : const Color(0xFFD1D5DB),
+                  color: done || active ? HouseholdColors.primary : HouseholdColors.border,
                   width: 1.5,
                 ),
               ),
@@ -364,7 +421,7 @@ class _StepBar extends StatelessWidget {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 260),
                   height: 2,
-                  color: i < step ? HouseholdColors.primary : const Color(0xFFE8E4DD),
+                  color: i < step ? HouseholdColors.primary : HouseholdColors.border,
                 ),
               ),
           ];
@@ -420,9 +477,9 @@ class _BookFooter extends StatelessWidget {
             height: 56,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: HouseholdColors.card,
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFE8E4DD)),
+                border: Border.all(color: HouseholdColors.border),
               ),
               child: Material(
                 color: Colors.transparent,
@@ -464,6 +521,7 @@ class _Step1 extends StatelessWidget {
     ('ORGANIC', 'Organic', HouseholdAssets.organicBin),
     ('CONSTRUCTION', 'Construction', HouseholdAssets.constructionBin),
     ('EWASTE', 'E-Waste', HouseholdAssets.ewasteBin),
+    ('BULKY', 'Bulky Items', HouseholdAssets.bulkyBin),
   ];
 
   @override
@@ -476,7 +534,8 @@ class _Step1 extends StatelessWidget {
         Text('Select the primary category for this collection.', style: HouseholdType.caption),
         const SizedBox(height: 20),
         GridView.count(
-          crossAxisCount: 2,
+          // Adapt to screen width: 2 columns on phones, 3 on wide/tablet.
+          crossAxisCount: MediaQuery.sizeOf(context).width >= 600 ? 3 : 2,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisSpacing: 12,
@@ -493,9 +552,9 @@ class _Step1 extends StatelessWidget {
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: sel ? HouseholdColors.primary.withAlpha(22) : Colors.white,
+                  color: sel ? HouseholdColors.primary.withAlpha(22) : HouseholdColors.card,
                   borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: sel ? HouseholdColors.primary : const Color(0xFFE8E4DD), width: sel ? 2 : 1),
+                  border: Border.all(color: sel ? HouseholdColors.primary : HouseholdColors.border, width: sel ? 2 : 1),
                   boxShadow: [BoxShadow(color: HouseholdColors.forest.withAlpha(12), blurRadius: 14, offset: const Offset(0, 5))],
                 ),
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -515,13 +574,30 @@ class _Step1 extends StatelessWidget {
 // ─── Step 2: Volume & Extras ──────────────────────────────────────────────────
 
 class _Step2 extends StatelessWidget {
-  const _Step2({required this.binSize, required this.extraBags, required this.weightKg, required this.onBin, required this.onBags, required this.onWeight});
+  const _Step2({
+    required this.category,
+    required this.binSize,
+    required this.extraBags,
+    required this.weightKg,
+    required this.bulkyPhotos,
+    required this.bulkyDescCtrl,
+    required this.onBin,
+    required this.onBags,
+    required this.onWeight,
+    required this.onAddPhoto,
+    required this.onRemovePhoto,
+  });
+  final String category;
   final String binSize;
   final int extraBags;
   final double weightKg;
+  final List<XFile> bulkyPhotos;
+  final TextEditingController bulkyDescCtrl;
   final ValueChanged<String> onBin;
   final ValueChanged<int> onBags;
   final ValueChanged<double> onWeight;
+  final ValueChanged<ImageSource> onAddPhoto;
+  final ValueChanged<int> onRemovePhoto;
 
   static const _bins = [
     ('SMALL', 'Small', '≤120L', 30),
@@ -529,8 +605,188 @@ class _Step2 extends StatelessWidget {
     ('LARGE', 'Large', '240L', 50),
   ];
 
+  Widget _negotiatedCard() => HCard(
+        color: HouseholdColors.primary.withAlpha(16),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(PhosphorIcons.handshake(), color: HouseholdColors.primary, size: 22),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Price agreed on arrival', style: HouseholdType.section.copyWith(color: HouseholdColors.primary)),
+            const SizedBox(height: 2),
+            Text('No fixed charge — your collector will look at the load and agree a fair price with you before collecting. Pay cash or MoMo on pickup.', style: HouseholdType.caption),
+          ])),
+        ]),
+      );
+
+  Widget _weightSlider(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Estimated weight', style: HouseholdType.section),
+        const SizedBox(height: 4),
+        Text('Optional — helps match the right vehicle.', style: HouseholdType.caption),
+        const SizedBox(height: 12),
+        HCard(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Column(children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Text('0 kg', style: HouseholdType.caption),
+              Text('${weightKg.round()} kg', style: HouseholdType.number.copyWith(color: HouseholdColors.primary, fontSize: 18)),
+              Text('500 kg', style: HouseholdType.caption),
+            ]),
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(activeTrackColor: HouseholdColors.primary, thumbColor: HouseholdColors.primary, inactiveTrackColor: HouseholdColors.border, overlayColor: HouseholdColors.primary.withAlpha(30)),
+              child: Slider(value: weightKg, min: 0, max: 500, divisions: 10, onChanged: onWeight),
+            ),
+          ]),
+        ),
+      ]);
+
+  /// Photo grid shared by all categories — required for bulky, optional
+  /// elsewhere so the collector can see the rubbish before arriving when it's
+  /// not in a standard bin.
+  Widget _photoSection(BuildContext context, {required bool isRequired}) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('Photos (${bulkyPhotos.length}/8)', style: HouseholdType.section),
+      const SizedBox(height: 4),
+      Text(
+        isRequired
+            ? 'Required — show your collector what to expect.'
+            : 'Optional — if your rubbish isn\'t in a standard bin, a photo helps your collector prepare.',
+        style: HouseholdType.caption,
+      ),
+      const SizedBox(height: 12),
+      _photoGrid(context),
+    ]);
+  }
+
+  Widget _buildBulky(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Show us the items', style: HouseholdType.title),
+        const SizedBox(height: 6),
+        Text('Add photos of the bulky items (mattress, wardrobe, stove…) so your collector knows what to expect.', style: HouseholdType.caption),
+        const SizedBox(height: 20),
+        _photoSection(context, isRequired: true),
+        const SizedBox(height: 20),
+        Text('What are the items?', style: HouseholdType.section),
+        const SizedBox(height: 10),
+        TextField(
+          controller: bulkyDescCtrl,
+          maxLines: 3,
+          style: HouseholdType.body,
+          decoration: InputDecoration(
+            hintText: 'e.g. 1 double mattress, old wardrobe, gas stove',
+            filled: true,
+            fillColor: HouseholdColors.card,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: HouseholdColors.border)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: HouseholdColors.border)),
+          ),
+        ),
+        const SizedBox(height: 20),
+        _negotiatedCard(),
+        const SizedBox(height: 20),
+        _weightSlider(context),
+      ]),
+    );
+  }
+
+  Widget _photoGrid(BuildContext context) {
+    return GridView.count(
+          crossAxisCount: 3,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          children: [
+            for (var i = 0; i < bulkyPhotos.length; i++)
+              Stack(fit: StackFit.expand, children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.file(File(bulkyPhotos[i].path), fit: BoxFit.cover),
+                ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      onRemovePhoto(i);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                      child: const Icon(Icons.close_rounded, size: 14, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ]),
+            if (bulkyPhotos.length < 8)
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  showModalBottomSheet(
+                    context: context,
+                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+                    builder: (ctx) => SafeArea(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        ListTile(
+                          leading: Icon(PhosphorIcons.camera(), color: HouseholdColors.primary),
+                          title: Text('Take photo', style: HouseholdType.body),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            onAddPhoto(ImageSource.camera);
+                          },
+                        ),
+                        ListTile(
+                          leading: Icon(PhosphorIcons.images(), color: HouseholdColors.primary),
+                          title: Text('Choose from gallery', style: HouseholdType.body),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            onAddPhoto(ImageSource.gallery);
+                          },
+                        ),
+                      ]),
+                    ),
+                  );
+                },
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: HouseholdColors.card,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: HouseholdColors.primary.withAlpha(120), width: 1.5),
+                  ),
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(PhosphorIcons.plusCircle(), color: HouseholdColors.primary, size: 28),
+                    const SizedBox(height: 6),
+                    Text('Add photo', style: HouseholdType.caption.copyWith(color: HouseholdColors.primary, fontWeight: FontWeight.w700)),
+                  ]),
+                ),
+              ),
+          ],
+        );
+  }
+
+  Widget _buildNegotiated(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('How it works', style: HouseholdType.title),
+        const SizedBox(height: 6),
+        Text('Recyclables and special waste are priced by your collector.', style: HouseholdType.caption),
+        const SizedBox(height: 20),
+        _negotiatedCard(),
+        const SizedBox(height: 20),
+        _photoSection(context, isRequired: false),
+        const SizedBox(height: 20),
+        _weightSlider(context),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (category == 'BULKY') return _buildBulky(context);
+    if (category != 'HOUSEHOLD') return _buildNegotiated(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -555,9 +811,9 @@ class _Step2 extends StatelessWidget {
                     duration: const Duration(milliseconds: 200),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     decoration: BoxDecoration(
-                      color: sel ? HouseholdColors.primary : Colors.white,
+                      color: sel ? HouseholdColors.primary : HouseholdColors.card,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: sel ? HouseholdColors.primary : const Color(0xFFE8E4DD)),
+                      border: Border.all(color: sel ? HouseholdColors.primary : HouseholdColors.border),
                       boxShadow: [BoxShadow(color: HouseholdColors.forest.withAlpha(12), blurRadius: 14, offset: const Offset(0, 5))],
                     ),
                     child: Column(children: [
@@ -593,24 +849,9 @@ class _Step2 extends StatelessWidget {
           ]),
         ),
         const SizedBox(height: 24),
-        Text('Estimated weight', style: HouseholdType.section),
-        const SizedBox(height: 4),
-        Text('Optional — helps match the right vehicle.', style: HouseholdType.caption),
-        const SizedBox(height: 12),
-        HCard(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          child: Column(children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text('0 kg', style: HouseholdType.caption),
-              Text('${weightKg.round()} kg', style: HouseholdType.number.copyWith(color: HouseholdColors.primary, fontSize: 18)),
-              Text('500 kg', style: HouseholdType.caption),
-            ]),
-            SliderTheme(
-              data: SliderTheme.of(context).copyWith(activeTrackColor: HouseholdColors.primary, thumbColor: HouseholdColors.primary, inactiveTrackColor: const Color(0xFFE8E4DD), overlayColor: HouseholdColors.primary.withAlpha(30)),
-              child: Slider(value: weightKg, min: 0, max: 500, divisions: 10, onChanged: onWeight),
-            ),
-          ]),
-        ),
+        _photoSection(context, isRequired: false),
+        const SizedBox(height: 24),
+        _weightSlider(context),
       ]),
     );
   }
@@ -693,9 +934,9 @@ class _Step3 extends StatelessWidget {
                     width: 66,
                     margin: const EdgeInsets.only(right: 8),
                     decoration: BoxDecoration(
-                      color: sel ? HouseholdColors.primary : Colors.white,
+                      color: sel ? HouseholdColors.primary : HouseholdColors.card,
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: sel ? HouseholdColors.primary : const Color(0xFFE8E4DD)),
+                      border: Border.all(color: sel ? HouseholdColors.primary : HouseholdColors.border),
                     ),
                     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                       Text(DateFormat('EEE').format(d), style: HouseholdType.caption.copyWith(color: sel ? Colors.white.withAlpha(180) : HouseholdColors.gray, fontWeight: FontWeight.w600)),
@@ -735,7 +976,7 @@ class _Step3 extends StatelessWidget {
         ],
         const SizedBox(height: 20),
         HCard(
-          color: const Color(0xFFF0F7FF),
+          color: HouseholdColors.infoTint,
           padding: const EdgeInsets.all(14),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Icon(PhosphorIcons.info(), size: 18, color: HouseholdColors.primary),
@@ -790,9 +1031,9 @@ class _TimeChip extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: selected ? HouseholdColors.primary : Colors.white,
+          color: selected ? HouseholdColors.primary : HouseholdColors.card,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: selected ? HouseholdColors.primary : const Color(0xFFE8E4DD)),
+          border: Border.all(color: selected ? HouseholdColors.primary : HouseholdColors.border),
         ),
         child: Column(children: [
           Text(label, style: HouseholdType.caption.copyWith(color: selected ? Colors.white : HouseholdColors.charcoal, fontWeight: FontWeight.w700)),
@@ -822,9 +1063,9 @@ class _FreqChip extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? HouseholdColors.primary : Colors.white,
+          color: selected ? HouseholdColors.primary : HouseholdColors.card,
           borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: selected ? HouseholdColors.primary : const Color(0xFFE8E4DD)),
+          border: Border.all(color: selected ? HouseholdColors.primary : HouseholdColors.border),
         ),
         child: Text(label, style: HouseholdType.caption.copyWith(color: selected ? Colors.white : HouseholdColors.charcoal, fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
       ),
@@ -905,7 +1146,7 @@ class _Step4 extends StatelessWidget {
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
                     Icon(PhosphorIcons.mapPinArea(), color: HouseholdColors.primary, size: 36),
                     const SizedBox(height: 8),
-                    Text('Pickup location locked', style: HouseholdType.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
+                    Text('Pickup location locked', style: HouseholdType.caption.copyWith(color: HouseholdColors.card, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 2),
                     Text('${lat!.toStringAsFixed(4)}, ${lng!.toStringAsFixed(4)}', style: HouseholdType.number.copyWith(color: Colors.white.withAlpha(160), fontSize: 11)),
                   ]),
@@ -923,6 +1164,7 @@ class _Step4 extends StatelessWidget {
 class _Step5 extends StatelessWidget {
   const _Step5({
     required this.category,
+    required this.bulkyPhotoCount,
     required this.binSize,
     required this.extraBags,
     required this.isImmediate,
@@ -942,6 +1184,7 @@ class _Step5 extends StatelessWidget {
     this.error,
   });
   final String category;
+  final int bulkyPhotoCount;
   final String binSize;
   final int extraBags;
   final bool isImmediate;
@@ -961,9 +1204,11 @@ class _Step5 extends StatelessWidget {
   final String? error;
 
   static String _catLabel(String c) {
-    const m = {'HOUSEHOLD': 'Household', 'PLASTIC': 'Plastic', 'GLASS': 'Glass', 'METAL': 'Metal / Scrap', 'ORGANIC': 'Organic', 'CONSTRUCTION': 'Construction', 'EWASTE': 'E-Waste'};
+    const m = {'HOUSEHOLD': 'Household', 'PLASTIC': 'Plastic', 'GLASS': 'Glass', 'METAL': 'Metal / Scrap', 'ORGANIC': 'Organic', 'CONSTRUCTION': 'Construction', 'EWASTE': 'E-Waste', 'BULKY': 'Bulky Items'};
     return m[c] ?? c;
   }
+
+  bool get _fixed => category == 'HOUSEHOLD';
 
   static String _binLabel(String b) => b[0] + b.substring(1).toLowerCase();
 
@@ -977,22 +1222,37 @@ class _Step5 extends StatelessWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Review & pay', style: HouseholdType.title),
+        Text(_fixed ? 'Review & pay' : 'Review & confirm', style: HouseholdType.title),
         const SizedBox(height: 6),
-        Text('Confirm your booking details before payment.', style: HouseholdType.caption),
+        Text(_fixed ? 'Confirm your booking details before payment.' : 'Confirm your booking details.', style: HouseholdType.caption),
         const SizedBox(height: 18),
         HCard(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Booking summary', style: HouseholdType.section),
             const SizedBox(height: 14),
             _ReviewRow(label: 'Category', value: _catLabel(category)),
-            _ReviewRow(label: 'Bin size', value: '${_binLabel(binSize)} — GHS ${base.toStringAsFixed(2)}'),
-            if (extraBags > 0) _ReviewRow(label: 'Extra bags', value: '$extraBags × GHS 6.00'),
+            if (_fixed) _ReviewRow(label: 'Bin size', value: '${_binLabel(binSize)} — GHS ${base.toStringAsFixed(2)}'),
+            if (_fixed && extraBags > 0) _ReviewRow(label: 'Extra bags', value: '$extraBags × GHS 6.00'),
+            if (bulkyPhotoCount > 0) _ReviewRow(label: 'Photos', value: '$bulkyPhotoCount photo${bulkyPhotoCount == 1 ? '' : 's'} attached'),
             _ReviewRow(label: 'Schedule', value: isImmediate ? 'Immediate pickup' : scheduledDate != null ? '${DateFormat('EEE d MMM').format(scheduledDate!)} · ${_timeLabel(timePref)}' : 'Not set'),
             _ReviewRow(label: 'Address', value: address.isEmpty ? 'Not entered' : address, multiLine: true),
           ]),
         ),
         const SizedBox(height: 14),
+        if (!_fixed) ...[
+          HCard(
+            color: HouseholdColors.primary.withAlpha(16),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(PhosphorIcons.handshake(), color: HouseholdColors.primary, size: 22),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Price agreed on arrival', style: HouseholdType.section.copyWith(color: HouseholdColors.primary)),
+                const SizedBox(height: 2),
+                Text('Your collector will agree a fair price with you before collecting. Pay them directly — cash or MoMo — on pickup.', style: HouseholdType.caption),
+              ])),
+            ]),
+          ),
+        ] else ...[
         HCard(
           child: Column(children: [
             _PriceRow(label: 'Collection fee', amount: base),
@@ -1000,7 +1260,7 @@ class _Step5 extends StatelessWidget {
             _PriceRow(label: 'Service fee', amount: serviceFee),
             if (promoDiscount > 0)
               _PriceRow(label: 'Promo discount', amount: -promoDiscount),
-            const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: Color(0xFFEEEAE2))),
+            Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Divider(height: 1, color: HouseholdColors.border)),
             Row(children: [
               Expanded(child: Text('Total', style: HouseholdType.section)),
               Text('GHS ${total.toStringAsFixed(2)}', style: HouseholdType.number.copyWith(color: HouseholdColors.primary, fontSize: 20, fontWeight: FontWeight.w700)),
@@ -1018,10 +1278,10 @@ class _Step5 extends StatelessWidget {
               hintText: 'Promo code',
               prefixIcon: const Icon(Icons.local_offer_outlined, size: 18),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: HouseholdColors.card,
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFEEEAE2))),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFEEEAE2))),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: HouseholdColors.border)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: HouseholdColors.border)),
             ),
           )),
           const SizedBox(width: 10),
@@ -1056,9 +1316,9 @@ class _Step5 extends StatelessWidget {
                 duration: const Duration(milliseconds: 180),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: payment == m.$1 ? HouseholdColors.primary.withAlpha(18) : Colors.white,
+                  color: payment == m.$1 ? HouseholdColors.primary.withAlpha(18) : HouseholdColors.card,
                   borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: payment == m.$1 ? HouseholdColors.primary : const Color(0xFFE8E4DD), width: payment == m.$1 ? 2 : 1),
+                  border: Border.all(color: payment == m.$1 ? HouseholdColors.primary : HouseholdColors.border, width: payment == m.$1 ? 2 : 1),
                   boxShadow: [BoxShadow(color: HouseholdColors.forest.withAlpha(10), blurRadius: 12, offset: const Offset(0, 4))],
                 ),
                 child: Row(children: [
@@ -1073,7 +1333,7 @@ class _Step5 extends StatelessWidget {
         if (payment != 'CASH') ...[
           const SizedBox(height: 4),
           HCard(
-            color: const Color(0xFFF0F7FF),
+            color: HouseholdColors.infoTint,
             padding: const EdgeInsets.all(14),
             child: Row(children: [
               Icon(PhosphorIcons.info(), color: HouseholdColors.primary, size: 18),
@@ -1082,10 +1342,11 @@ class _Step5 extends StatelessWidget {
             ]),
           ),
         ],
+        ],
         if (error != null) ...[
           const SizedBox(height: 12),
           HCard(
-            color: const Color(0xFFFFF1F2),
+            color: HouseholdColors.dangerTint,
             child: Row(children: [
               Icon(PhosphorIcons.warning(), color: HouseholdColors.danger, size: 18),
               const SizedBox(width: 10),

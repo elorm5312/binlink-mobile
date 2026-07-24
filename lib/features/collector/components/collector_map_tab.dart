@@ -24,11 +24,16 @@ class CollectorMapTab extends StatelessWidget {
     final provider = context.watch<CollectorProvider>();
     final user = context.watch<AuthProvider>().user;
     if (p == null) {
-      return const Center(child: SearchingRadarWidget(color: CollectorColors.warning));
+      return Center(child: SearchingRadarWidget(color: CollectorColors.warning));
     }
     final capacity = ((user?.currentLoadKg ?? 0) / (user?.maxCapacityKg ?? 500) * 100).clamp(0, 100).round();
     final etaText = _etaText(provider.currentActivePickup);
     final verified = user?.status == 'ACTIVE';
+    // The screen uses Scaffold(extendBody: true) with a floating 86px bottom
+    // nav (CBottomNav: 72px bar + 14px margin). Bottom-anchored controls must
+    // clear it, otherwise they render hidden behind the nav bar.
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    const navClearance = 86.0 + 12.0; // nav height + gap
     return Stack(
       children: [
         Positioned.fill(child: BinLinkMap(initialPosition: p, myLocationEnabled: provider.isOnline)),
@@ -39,7 +44,7 @@ class CollectorMapTab extends StatelessWidget {
           child: CPanel(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             child: Row(children: [
-              const CIcon('map', color: CollectorColors.green),
+              CIcon('map', color: CollectorColors.green),
               const SizedBox(width: 14),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(Fmt.currency(provider.todayEarnings), style: CollectorType.title),
@@ -53,12 +58,12 @@ class CollectorMapTab extends StatelessWidget {
             ]),
           ),
         ),
-        // Truck-full dumpsite routing banner — above the GO button
+        // Truck-full dumpsite routing banner â€” above the GO button
         if (provider.isCapacityWarning)
           Positioned(
             left: 16,
             right: 16,
-            bottom: 180,
+            bottom: bottomInset + navClearance + 84,
             child: _DumpsiteBanner(
               loadPercent: provider.loadPercent,
               dumpsite: provider.nearestDumpsite,
@@ -85,9 +90,9 @@ class CollectorMapTab extends StatelessWidget {
           right: 22,
           child: _Metric(label: 'Speed', value: '${provider.currentSpeedKph.round()} km/h'),
         ),
-        // Clean status bar pinned to the bottom — no longer floating over the map.
+        // Clean status bar pinned to the bottom â€” lifted above the floating nav bar.
         Positioned(
-          left: 16, right: 16, bottom: 20,
+          left: 16, right: 16, bottom: bottomInset + navClearance,
           child: _OnlineBar(
             verified: verified,
             isOnline: provider.isOnline,
@@ -277,7 +282,7 @@ Future<void> _confirmOffload(BuildContext context, CollectorProvider provider) a
   final ok = await provider.dumpLoad(facilityId: dumpsite?['id'] as String?);
   messenger.showSnackBar(SnackBar(
     backgroundColor: ok ? CollectorColors.green : CollectorColors.red,
-    content: Text(ok ? 'Load cleared — back to receiving jobs.' : 'Could not update. Try again.'),
+    content: Text(ok ? 'Load cleared â€” back to receiving jobs.' : 'Could not update. Try again.'),
   ));
 }
 
@@ -310,12 +315,12 @@ class _DumpsiteBanner extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(color: CollectorColors.payout.withAlpha(40), shape: BoxShape.circle),
-            child: const CIcon('truck', color: CollectorColors.payout),
+            child: CIcon('truck', color: CollectorColors.payout),
           ),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Truck $loadPercent% full', style: CollectorType.title),
-            Text(distance != null ? '$name · ${distance.toStringAsFixed(1)} km away' : name,
+            Text(distance != null ? '$name Â· ${distance.toStringAsFixed(1)} km away' : name,
                 maxLines: 1, overflow: TextOverflow.ellipsis, style: CollectorType.caption),
           ])),
         ]),
@@ -325,10 +330,10 @@ class _DumpsiteBanner extends StatelessWidget {
             onPressed: dumpsite == null ? null : onNavigate,
             style: OutlinedButton.styleFrom(
               foregroundColor: CollectorColors.white,
-              side: const BorderSide(color: CollectorColors.line),
+              side: BorderSide(color: CollectorColors.line),
               padding: const EdgeInsets.symmetric(vertical: 12),
             ),
-            icon: const CIcon('navigation', color: CollectorColors.white),
+            icon: CIcon('navigation', color: CollectorColors.white),
             label: Text('Navigate', style: CollectorType.caption.copyWith(color: CollectorColors.white)),
           )),
           const SizedBox(width: 10),
@@ -346,7 +351,7 @@ class _DumpsiteBanner extends StatelessWidget {
   }
 }
 
-// ── Clean online/offline status bar (replaces the old floating GO circle) ─────
+// â”€â”€ Clean online/offline status bar (replaces the old floating GO circle) â”€â”€â”€â”€â”€
 class _OnlineBar extends StatelessWidget {
   const _OnlineBar({required this.verified, required this.isOnline, required this.onTap});
   final bool verified;

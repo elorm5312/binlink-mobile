@@ -85,7 +85,7 @@ class _HistoryTile extends StatelessWidget {
         child: HCard(
           padding: const EdgeInsets.all(16),
           child: Row(children: [
-            const HIcon('payment', color: HouseholdColors.primary),
+            HIcon('payment', color: HouseholdColors.primary),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(booking['pickupAddress'] as String? ?? 'Pickup receipt', maxLines: 1, overflow: TextOverflow.ellipsis, style: HouseholdType.section),
@@ -124,9 +124,9 @@ class _HistorySheetState extends State<_HistorySheet> {
   Widget build(BuildContext context) {
     final review = widget.booking['review'] as Map<String, dynamic>?;
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: HouseholdColors.sand,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
       ),
       child: SafeArea(
         top: false,

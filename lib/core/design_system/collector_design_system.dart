@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'app_haptics.dart';
@@ -52,28 +51,47 @@ class CollectorAssets {
   static const loadingLottie   = '$root/lottie/loading.json';
 }
 
+/// Collector palette — green-on-black (default) / green-on-white (light).
+///
+/// Same pattern as HouseholdColors: theme-switched getters keyed off [isDark],
+/// flipped by ThemeProvider before the tree rebuilds. Semantic names keep
+/// their roles across modes: `dark` = scaffold background, `charcoal` = panel
+/// surface, `white` = primary text, `line` = hairlines.
 class CollectorColors {
-  static const green = Color(0xFFD97706);
-  static const forest = Color(0xFF0B3B2E);
-  static const dark = Color(0xFF111827);
-  static const charcoal = Color(0xFF1F2937);
-  static const gray = Color(0xFF6B7280);
-  static const line = Color(0xFF263241);
-  static const white = Color(0xFFFAFAF9);
-  static const blue = Color(0xFF3B82F6);
-  static const warning = Color(0xFFF59E0B);
-  static const payout = Color(0xFFEA580C);
-  static const red = Color(0xFFEF4444);
-  static const success = Color(0xFF22C55E);
+  static bool isDark = true;
+
+  // Brand green (was amber 0xFFD97706 pre-rebrand). Buttons draw `dark` text
+  // on it, so it stays bright.
+  static Color get green  => isDark ? const Color(0xFF2BD97B) : const Color(0xFF16A34A);
+  static Color get forest => isDark ? const Color(0xFFD7F5E4) : const Color(0xFF0B3B2E);
+
+  // Surfaces
+  static Color get dark     => isDark ? const Color(0xFF0B100D) : const Color(0xFFF4F7F4);
+  static Color get charcoal => isDark ? const Color(0xFF161D18) : Colors.white;
+  static Color get line     => isDark ? const Color(0xFF25322A) : const Color(0xFFE3E8E3);
+
+  // Text
+  static Color get white => isDark ? const Color(0xFFFAFAF9) : const Color(0xFF16241C);
+  static Color get gray  => isDark ? const Color(0xFF9AA8A0) : const Color(0xFF6B7280);
+  static Color get muted => isDark ? const Color(0xFF95A1B2) : const Color(0xFF8A948E);
+
+  // Accents / status
+  static Color get blue    => const Color(0xFF3B82F6);
+  static Color get warning => const Color(0xFFF59E0B);
+  static Color get payout  => const Color(0xFFEA580C);
+  static Color get red     => isDark ? const Color(0xFFF87171) : const Color(0xFFEF4444);
+  static Color get success => const Color(0xFF22C55E);
 }
 
 class CollectorType {
-  static TextStyle get hero => GoogleFonts.plusJakartaSans(fontSize: 36, height: 1.0, fontWeight: FontWeight.w800, color: CollectorColors.white);
-  static TextStyle get title => GoogleFonts.plusJakartaSans(fontSize: 24, height: 1.1, fontWeight: FontWeight.w800, color: CollectorColors.white);
-  static TextStyle get section => GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.w800, color: CollectorColors.white);
-  static TextStyle get body => GoogleFonts.plusJakartaSans(fontSize: 15, height: 1.42, fontWeight: FontWeight.w500, color: CollectorColors.white);
-  static TextStyle get caption => GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w500, color: const Color(0xFFB6C0CC));
-  static TextStyle get number => GoogleFonts.dmMono(fontSize: 16, fontWeight: FontWeight.w600, color: CollectorColors.white);
+  static const _sans = 'PlusJakartaSans';
+  static const _mono = 'DMMono';
+  static TextStyle get hero => TextStyle(fontFamily: _sans, fontSize: 36, height: 1.0, fontWeight: FontWeight.w800, color: CollectorColors.white);
+  static TextStyle get title => TextStyle(fontFamily: _sans, fontSize: 24, height: 1.1, fontWeight: FontWeight.w800, color: CollectorColors.white);
+  static TextStyle get section => TextStyle(fontFamily: _sans, fontSize: 17, fontWeight: FontWeight.w800, color: CollectorColors.white);
+  static TextStyle get body => TextStyle(fontFamily: _sans, fontSize: 15, height: 1.42, fontWeight: FontWeight.w500, color: CollectorColors.white);
+  static TextStyle get caption => TextStyle(fontFamily: _sans, fontSize: 12, fontWeight: FontWeight.w500, color: CollectorColors.isDark ? const Color(0xFFB6C0CC) : const Color(0xFF6B7280));
+  static TextStyle get number => TextStyle(fontFamily: _mono, fontSize: 16, fontWeight: FontWeight.w600, color: CollectorColors.white);
 }
 
 class CIcon extends StatelessWidget {
@@ -283,9 +301,9 @@ class CTextField extends StatelessWidget {
         labelStyle: CollectorType.caption,
         hintStyle: CollectorType.caption,
         contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: CollectorColors.line)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: CollectorColors.line)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: CollectorColors.green, width: 1.4)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: CollectorColors.line)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: CollectorColors.line)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: CollectorColors.green, width: 1.4)),
       ),
     );
   }
@@ -324,9 +342,9 @@ class CBottomNav extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        CIcon(items[i].icon, size: 24, color: active ? CollectorColors.green : const Color(0xFF95A1B2)),
+                        CIcon(items[i].icon, size: 24, color: active ? CollectorColors.green : CollectorColors.muted),
                         const SizedBox(height: 5),
-                        Text(items[i].label, style: CollectorType.caption.copyWith(color: active ? CollectorColors.green : const Color(0xFF95A1B2), fontWeight: active ? FontWeight.w800 : FontWeight.w500)),
+                        Text(items[i].label, style: CollectorType.caption.copyWith(color: active ? CollectorColors.green : CollectorColors.muted, fontWeight: active ? FontWeight.w800 : FontWeight.w500)),
                       ],
                     ),
                   ),

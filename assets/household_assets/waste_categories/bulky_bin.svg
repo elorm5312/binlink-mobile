@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Armchair icon for bulky items (furniture, mattresses, appliances) -->
+  <!-- Chair back -->
+  <rect x="30" y="14" width="40" height="30" rx="8" fill="#C1E8FF"/>
+  <!-- Armrests -->
+  <rect x="16" y="30" width="14" height="24" rx="6" fill="#7DA0CA"/>
+  <rect x="70" y="30" width="14" height="24" rx="6" fill="#7DA0CA"/>
+  <!-- Seat cushion -->
+  <rect x="26" y="40" width="48" height="14" rx="5" fill="#5483B3"/>
+  <!-- Bin lid handle -->
+  <rect x="43" y="50" width="14" height="8" rx="4" fill="#021024"/>
+  <!-- Bin lid -->
+  <rect x="19" y="56" width="62" height="11" rx="5.5" fill="#052659"/>
+  <!-- Bin body -->
+  <rect x="22" y="65" width="56" height="32" rx="8" fill="#5483B3"/>
+  <rect x="22" y="76" width="56" height="2" rx="1" fill="#7DA0CA" opacity="0.4"/>
+  <rect x="22" y="85" width="56" height="2" rx="1" fill="#7DA0CA" opacity="0.4"/>
+</svg>

@@ -12,7 +12,7 @@ import '../../../shared/components/binlink_map.dart';
 
 /// In-app turn-by-turn style navigation. Draws the live road route to a
 /// destination on the map, follows the collector's GPS, and shows distance /
-/// ETA — keeping the driver in-app instead of handing off to Google Maps.
+/// ETA â€” keeping the driver in-app instead of handing off to Google Maps.
 class NavigationScreen extends StatefulWidget {
   const NavigationScreen({super.key, required this.destination, required this.label});
 
@@ -100,7 +100,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
       body: Stack(children: [
         Positioned.fill(
           child: _myPos == null
-              ? const Center(child: CircularProgressIndicator(color: CollectorColors.green))
+              ? Center(child: CircularProgressIndicator(color: CollectorColors.green))
               : BinLinkMap(
                   initialPosition: _myPos!,
                   pickupPosition: widget.destination,

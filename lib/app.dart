@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'core/config/app_flavor.dart';
 import 'core/design_system/theme_provider.dart';
@@ -54,7 +53,14 @@ class BinLinkApp extends StatelessWidget {
             debugShowCheckedModeBanner: false,
             theme: FlavorConfig.isCollector ? _collectorTheme() : _householdTheme(),
             darkTheme: FlavorConfig.isCollector ? _collectorTheme() : _householdTheme(),
-            themeMode: FlavorConfig.isCollector ? ThemeMode.light : themeProv.themeMode,
+            themeMode: themeProv.themeMode,
+            // Responsive safety: honor the system font size but clamp it so
+            // very large accessibility scales can't break fixed layouts.
+            builder: (context, child) => MediaQuery.withClampedTextScaling(
+              minScaleFactor: 0.85,
+              maxScaleFactor: 1.3,
+              child: child ?? const SizedBox.shrink(),
+            ),
             initialRoute: '/splash',
             routes: {
               '/splash':          (_) => const SplashScreen(),
@@ -94,12 +100,21 @@ class BinLinkApp extends StatelessWidget {
   }
 }
 
+// Reads the current HouseholdColors palette (ThemeProvider flips isDark before
+// notifying, so this always builds against the right palette).
 ThemeData _householdTheme() {
   return ThemeData(
     useMaterial3: true,
+    brightness: HouseholdColors.isDark ? Brightness.dark : Brightness.light,
     scaffoldBackgroundColor: HouseholdColors.sand,
-    colorScheme: ColorScheme.fromSeed(seedColor: HouseholdColors.primary, surface: Colors.white),
-    textTheme: GoogleFonts.plusJakartaSansTextTheme().apply(bodyColor: HouseholdColors.charcoal, displayColor: HouseholdColors.forest),
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: HouseholdColors.primary,
+      brightness: HouseholdColors.isDark ? Brightness.dark : Brightness.light,
+      surface: HouseholdColors.card,
+    ),
+    textTheme: (HouseholdColors.isDark ? ThemeData.dark() : ThemeData.light())
+        .textTheme
+        .apply(fontFamily: 'PlusJakartaSans', bodyColor: HouseholdColors.charcoal, displayColor: HouseholdColors.forest),
     pageTransitionsTheme: const PageTransitionsTheme(builders: {
       TargetPlatform.android: ZoomPageTransitionsBuilder(),
       TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
@@ -107,12 +122,21 @@ ThemeData _householdTheme() {
   );
 }
 
+// Reads the current CollectorColors palette (ThemeProvider flips isDark before
+// notifying, so this always builds against the right palette).
 ThemeData _collectorTheme() {
   return ThemeData(
     useMaterial3: true,
+    brightness: CollectorColors.isDark ? Brightness.dark : Brightness.light,
     scaffoldBackgroundColor: CollectorColors.dark,
-    colorScheme: ColorScheme.fromSeed(seedColor: CollectorColors.green, brightness: Brightness.dark, surface: CollectorColors.charcoal),
-    textTheme: GoogleFonts.plusJakartaSansTextTheme().apply(bodyColor: CollectorColors.white, displayColor: CollectorColors.white),
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: CollectorColors.green,
+      brightness: CollectorColors.isDark ? Brightness.dark : Brightness.light,
+      surface: CollectorColors.charcoal,
+    ),
+    textTheme: (CollectorColors.isDark ? ThemeData.dark() : ThemeData.light())
+        .textTheme
+        .apply(fontFamily: 'PlusJakartaSans', bodyColor: CollectorColors.white, displayColor: CollectorColors.white),
     pageTransitionsTheme: const PageTransitionsTheme(builders: {
       TargetPlatform.android: ZoomPageTransitionsBuilder(),
       TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),

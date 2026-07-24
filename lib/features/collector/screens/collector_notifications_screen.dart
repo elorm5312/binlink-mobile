@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/design_system/collector_design_system.dart';
+import '../../../core/design_system/theme_provider.dart';
+import '../../../core/design_system/theme_provider.dart';
 import '../../../core/l10n/strings.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/formatters.dart';
@@ -64,7 +66,7 @@ class _CollectorNotificationsScreenState extends State<CollectorNotificationsScr
             if (p.unreadNotifications > 0) ...[
               CPanel(
                 child: Row(children: [
-                  const CIcon('notifications', color: CollectorColors.warning),
+                  CIcon('notifications', color: CollectorColors.warning),
                   const SizedBox(width: 12),
                   Expanded(child: Text('${p.unreadNotifications} unread alerts', style: CollectorType.section)),
                   CButton(label: 'Mark all read', icon: 'history', secondary: true, onPressed: p.markAllNotificationsRead),
@@ -236,8 +238,8 @@ class _CollectorSupportScreenState extends State<CollectorSupportScreen> {
                   labelText: 'Message',
                   filled: true,
                   fillColor: CollectorColors.charcoal,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: CollectorColors.line)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: CollectorColors.line)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: CollectorColors.line)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: CollectorColors.line)),
                 ),
               ),
             ]),
@@ -624,7 +626,7 @@ class _CollectorReviewsScreenState extends State<CollectorReviewsScreen> {
           CPanel(
             child: Row(
               children: [
-                const CIcon('star', color: CollectorColors.warning, size: 34),
+                CIcon('star', color: CollectorColors.warning, size: 34),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -657,7 +659,7 @@ class _CollectorReviewsScreenState extends State<CollectorReviewsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      const CIcon('reviews', color: CollectorColors.green),
+                      CIcon('reviews', color: CollectorColors.green),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -794,7 +796,7 @@ class _CollectorRatingsScreenState extends State<CollectorRatingsScreen> {
         else ...[
           CPanel(
             child: Row(children: [
-              const CIcon('star', color: CollectorColors.warning, size: 32),
+              CIcon('star', color: CollectorColors.warning, size: 32),
               const SizedBox(width: 14),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('${_average.toStringAsFixed(1)} / 5.0', style: CollectorType.title),
@@ -822,7 +824,7 @@ class _CollectorRatingsScreenState extends State<CollectorRatingsScreen> {
                                   value: ratio,
                                   minHeight: 8,
                                   backgroundColor: CollectorColors.line,
-                                  valueColor: const AlwaysStoppedAnimation(CollectorColors.warning),
+                                  valueColor: AlwaysStoppedAnimation(CollectorColors.warning),
                                 ),
                               ),
                             ),
@@ -859,6 +861,7 @@ class _CollectorSettingsScreenState extends State<CollectorSettingsScreen> {
   bool _autoAccept = false;
   bool _showRatings = true;
   String _language = 'English';
+  ThemeMode _themeMode = ThemeMode.dark;
   String? _error;
   String? _success;
 
@@ -870,11 +873,13 @@ class _CollectorSettingsScreenState extends State<CollectorSettingsScreen> {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _sound = prefs.getBool('collector_sound') ?? true;
       _autoAccept = prefs.getBool('collector_auto_accept') ?? false;
       _showRatings = prefs.getBool('collector_show_ratings') ?? true;
       _language = context.read<AppStringsProvider>().langCode;
+      _themeMode = context.read<ThemeProvider>().themeMode;
       _error = null;
       _loading = false;
     });
@@ -882,6 +887,7 @@ class _CollectorSettingsScreenState extends State<CollectorSettingsScreen> {
 
   Future<void> _save() async {
     final stringsProvider = context.read<AppStringsProvider>();
+    final themeProvider = context.read<ThemeProvider>();
     setState(() {
       _error = null;
       _success = null;
@@ -892,7 +898,16 @@ class _CollectorSettingsScreenState extends State<CollectorSettingsScreen> {
       await prefs.setBool('collector_auto_accept', _autoAccept);
       await prefs.setBool('collector_show_ratings', _showRatings);
       await stringsProvider.setLanguage(_language);
-      if (mounted) setState(() => _success = 'Settings saved.');
+      final themeChanged = themeProvider.themeMode != _themeMode;
+      await themeProvider.setThemeMode(_themeMode);
+      if (!mounted) return;
+      if (themeChanged) {
+        // Screens already on the stack were painted with the old palette â€”
+        // rebuild the app from the map so the new theme applies everywhere.
+        Navigator.of(context).pushNamedAndRemoveUntil('/collector', (r) => false);
+        return;
+      }
+      setState(() => _success = 'Settings saved.');
     } catch (_) {
       if (mounted) setState(() => _error = 'Could not save collector settings.');
     }
@@ -925,18 +940,37 @@ class _CollectorSettingsScreenState extends State<CollectorSettingsScreen> {
       child: Column(children: [
         CPanel(
           child: Column(children: [
+            DropdownButtonFormField<ThemeMode>(
+              initialValue: _themeMode,
+              decoration: InputDecoration(
+                labelText: 'Theme',
+                filled: true,
+                fillColor: CollectorColors.charcoal,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: CollectorColors.line)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: CollectorColors.line)),
+              ),
+              items: const [
+                DropdownMenuItem(value: ThemeMode.dark, child: Text('Dark â€” green on black')),
+                DropdownMenuItem(value: ThemeMode.light, child: Text('Light â€” green on white')),
+                DropdownMenuItem(value: ThemeMode.system, child: Text('System')),
+              ],
+              onChanged: (value) {
+                if (value != null) setState(() => _themeMode = value);
+              },
+            ),
+            const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: _language,
               decoration: InputDecoration(
                 labelText: 'Language',
                 filled: true,
                 fillColor: CollectorColors.charcoal,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: CollectorColors.line)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: CollectorColors.line)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: CollectorColors.line)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: CollectorColors.line)),
               ),
               items: const [
                 DropdownMenuItem(value: 'English', child: Text('English')),
-                DropdownMenuItem(value: 'Français', child: Text('Français')),
+                DropdownMenuItem(value: 'FranÃ§ais', child: Text('FranÃ§ais')),
               ],
               onChanged: (value) {
                 if (value != null) setState(() => _language = value);
@@ -1029,7 +1063,7 @@ class _CollectorFormScreen extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           children: [
             Row(children: [
-              IconButton(onPressed: () => Navigator.maybePop(context), icon: const CIcon('route', color: CollectorColors.white)),
+              IconButton(onPressed: () => Navigator.maybePop(context), icon: CIcon('route', color: CollectorColors.white)),
               const SizedBox(width: 8),
               Expanded(child: Text(title, style: CollectorType.title)),
             ]),
@@ -1092,7 +1126,7 @@ class _SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return CPanel(
       child: Row(children: [
-        const CIcon('notifications', color: CollectorColors.warning, size: 34),
+        CIcon('notifications', color: CollectorColors.warning, size: 34),
         const SizedBox(width: 14),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('$count updates', style: CollectorType.title),
@@ -1134,7 +1168,7 @@ class _CollectorNotificationItem extends StatelessWidget {
                     width: 10,
                     height: 10,
                     margin: const EdgeInsets.only(top: 8),
-                    decoration: const BoxDecoration(color: CollectorColors.warning, shape: BoxShape.circle),
+                    decoration: BoxDecoration(color: CollectorColors.warning, shape: BoxShape.circle),
                   ),
               ],
             ),

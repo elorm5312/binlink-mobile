@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'app_haptics.dart';
@@ -56,6 +55,7 @@ class HouseholdAssets {
   static const metalBin        = '$root/waste_categories/metal_bin.svg';
   static const constructionBin = '$root/waste_categories/construction_bin.svg';
   static const medicalBin      = '$root/waste_categories/medical_bin.svg';
+  static const bulkyBin        = '$root/waste_categories/bulky_bin.svg';
 
   // Map markers (PNG)
   static const truckMarker       = '$root/map_markers/truck_marker.png';
@@ -69,26 +69,56 @@ class HouseholdAssets {
   static const successLottie = '$root/lottie/success.json';
 }
 
+/// BinLink brand palette — "green on white" (light) / "green on black" (dark).
+///
+/// Colors are theme-switched getters, not consts: [isDark] is flipped by
+/// ThemeProvider before the tree rebuilds. Semantic names keep their roles in
+/// both modes (charcoal = primary text, sand = scaffold background, card =
+/// raised surface, border = hairlines), so call sites don't need to branch.
 class HouseholdColors {
-  static const primary = Color(0xFF5483B3);
-  static const ecoGreen = Color(0xFF19B661);
-  static const forest = Color(0xFF0B3B2E);
-  static const charcoal = Color(0xFF1F2937);
-  static const gray = Color(0xFF6B7280);
-  static const warmWhite = Color(0xFFFAFAF9);
-  static const sand = Color(0xFFF5F1EA);
-  static const blue = Color(0xFF3B82F6);
-  static const warning = Color(0xFFF59E0B);
-  static const danger = Color(0xFFEF4444);
+  static bool isDark = false;
+
+  // Brand greens. Dark primary stays deep enough to carry the white text that
+  // existing call sites draw on primary-filled surfaces.
+  static Color get primary  => isDark ? const Color(0xFF1FBF63) : const Color(0xFF16A34A);
+  static Color get ecoGreen => isDark ? const Color(0xFF2BD97B) : const Color(0xFF19B661);
+  static Color get forest   => isDark ? const Color(0xFFD7F5E4) : const Color(0xFF0B3B2E);
+
+  // Text
+  static Color get charcoal => isDark ? const Color(0xFFE8EDEA) : const Color(0xFF1F2937);
+  static Color get gray     => isDark ? const Color(0xFF9AA8A0) : const Color(0xFF6B7280);
+
+  // Surfaces
+  static Color get warmWhite => isDark ? const Color(0xFF101613) : const Color(0xFFFAFAF9);
+  static Color get sand      => isDark ? const Color(0xFF0A0F0C) : const Color(0xFFF4F7F4);
+  static Color get card      => isDark ? const Color(0xFF151C17) : Colors.white;
+  static Color get border    => isDark ? const Color(0xFF25322A) : const Color(0xFFE3E8E3);
+
+  // Accents / status
+  static Color get blue    => const Color(0xFF3B82F6);
+  static Color get warning => const Color(0xFFF59E0B);
+  static Color get danger  => isDark ? const Color(0xFFF87171) : const Color(0xFFEF4444);
+
+  /// Text/icon color on top of [primary]-filled surfaces.
+  static Color get onPrimary => Colors.white;
+
+  // Soft tint cards (info banners, inline errors) — dark variants keep text readable.
+  static Color get infoTint   => isDark ? const Color(0xFF12212E) : const Color(0xFFF0F7FF);
+  static Color get dangerTint => isDark ? const Color(0xFF2A1518) : const Color(0xFFFFF1F2);
+
+  /// Soft shadow tint for cards.
+  static Color get shadow => isDark ? Colors.black.withAlpha(90) : const Color(0xFF0B3B2E).withAlpha(20);
 }
 
 class HouseholdType {
-  static TextStyle get hero => GoogleFonts.plusJakartaSans(fontSize: 34, height: 1.04, fontWeight: FontWeight.w700, color: HouseholdColors.forest);
-  static TextStyle get title => GoogleFonts.plusJakartaSans(fontSize: 24, height: 1.12, fontWeight: FontWeight.w700, color: HouseholdColors.charcoal);
-  static TextStyle get section => GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.w700, color: HouseholdColors.charcoal);
-  static TextStyle get body => GoogleFonts.plusJakartaSans(fontSize: 15, height: 1.45, fontWeight: FontWeight.w500, color: HouseholdColors.charcoal);
-  static TextStyle get caption => GoogleFonts.plusJakartaSans(fontSize: 12, height: 1.35, fontWeight: FontWeight.w400, color: HouseholdColors.gray);
-  static TextStyle get number => GoogleFonts.dmMono(fontSize: 16, fontWeight: FontWeight.w600, color: HouseholdColors.charcoal);
+  static const _sans = 'PlusJakartaSans';
+  static const _mono = 'DMMono';
+  static TextStyle get hero => TextStyle(fontFamily: _sans, fontSize: 34, height: 1.04, fontWeight: FontWeight.w700, color: HouseholdColors.forest);
+  static TextStyle get title => TextStyle(fontFamily: _sans, fontSize: 24, height: 1.12, fontWeight: FontWeight.w700, color: HouseholdColors.charcoal);
+  static TextStyle get section => TextStyle(fontFamily: _sans, fontSize: 17, fontWeight: FontWeight.w700, color: HouseholdColors.charcoal);
+  static TextStyle get body => TextStyle(fontFamily: _sans, fontSize: 15, height: 1.45, fontWeight: FontWeight.w500, color: HouseholdColors.charcoal);
+  static TextStyle get caption => TextStyle(fontFamily: _sans, fontSize: 12, height: 1.35, fontWeight: FontWeight.w400, color: HouseholdColors.gray);
+  static TextStyle get number => TextStyle(fontFamily: _mono, fontSize: 16, fontWeight: FontWeight.w600, color: HouseholdColors.charcoal);
 }
 
 class HIcon extends StatelessWidget {
@@ -165,9 +195,9 @@ class HButton extends StatelessWidget {
         width: double.infinity,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: secondary ? Colors.white : HouseholdColors.primary,
+            color: secondary ? HouseholdColors.card : HouseholdColors.primary,
             borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: secondary ? const Color(0xFFE8E4DD) : HouseholdColors.primary),
+            border: Border.all(color: secondary ? HouseholdColors.border : HouseholdColors.primary),
             boxShadow: secondary ? null : [BoxShadow(color: HouseholdColors.primary.withAlpha(54), blurRadius: 22, offset: const Offset(0, 10))],
           ),
           child: Material(
@@ -248,20 +278,21 @@ class _LoadingDotsState extends State<_LoadingDots> with SingleTickerProviderSta
 }
 
 class HCard extends StatelessWidget {
-  const HCard({super.key, required this.child, this.padding = const EdgeInsets.all(20), this.radius = 28, this.color = Colors.white});
+  const HCard({super.key, required this.child, this.padding = const EdgeInsets.all(20), this.radius = 28, this.color});
   final Widget child;
   final EdgeInsets padding;
   final double radius;
-  final Color color;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: color,
+        color: color ?? HouseholdColors.card,
         borderRadius: BorderRadius.circular(radius),
-        boxShadow: [BoxShadow(color: HouseholdColors.forest.withAlpha(20), blurRadius: 28, offset: const Offset(0, 14))],
+        border: HouseholdColors.isDark ? Border.all(color: HouseholdColors.border) : null,
+        boxShadow: [BoxShadow(color: HouseholdColors.shadow, blurRadius: 28, offset: const Offset(0, 14))],
       ),
       child: child,
     );
@@ -291,12 +322,12 @@ class HTextField extends StatelessWidget {
         labelText: label,
         hintText: hint,
         filled: true,
-        fillColor: Colors.white,
+        fillColor: HouseholdColors.card,
         labelStyle: HouseholdType.caption,
         contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: Color(0xFFE8E4DD))),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: Color(0xFFE8E4DD))),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: HouseholdColors.primary, width: 1.4)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide(color: HouseholdColors.border)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide(color: HouseholdColors.border)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide(color: HouseholdColors.primary, width: 1.4)),
       ),
     );
   }
@@ -318,7 +349,7 @@ class HBottomNav extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
           child: Container(
             height: 72,
-            decoration: BoxDecoration(color: Colors.white.withAlpha(232), borderRadius: BorderRadius.circular(36), border: Border.all(color: Colors.white)),
+            decoration: BoxDecoration(color: HouseholdColors.card.withAlpha(232), borderRadius: BorderRadius.circular(36), border: Border.all(color: HouseholdColors.isDark ? HouseholdColors.border : Colors.white)),
             child: Row(
               children: List.generate(items.length, (i) {
                 final active = i == index;
@@ -359,10 +390,10 @@ class HBottomNav extends StatelessWidget {
 }
 
 class HScaffold extends StatelessWidget {
-  const HScaffold({super.key, required this.child, this.background = HouseholdColors.sand});
+  const HScaffold({super.key, required this.child, this.background});
   final Widget child;
-  final Color background;
+  final Color? background;
 
   @override
-  Widget build(BuildContext context) => Scaffold(backgroundColor: background, body: SafeArea(child: child));
+  Widget build(BuildContext context) => Scaffold(backgroundColor: background ?? HouseholdColors.sand, body: SafeArea(child: child));
 }

@@ -82,7 +82,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         title: Text('Verification', style: CollectorType.title),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: CollectorColors.green))
+          ? Center(child: CircularProgressIndicator(color: CollectorColors.green))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: _content(prov),
@@ -109,7 +109,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
       );
     }
 
-    // NONE or REJECTED → show the upload form.
+    // NONE or REJECTED â†’ show the upload form.
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if (status == 'REJECTED')
         Container(
@@ -179,7 +179,7 @@ class _DocTile extends StatelessWidget {
                 Image.file(File(path!), fit: BoxFit.cover),
                 Positioned(top: 8, right: 8, child: Container(
                   padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(color: CollectorColors.green, shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: CollectorColors.green, shape: BoxShape.circle),
                   child: Icon(PhosphorIcons.check(PhosphorIconsStyle.bold), size: 14, color: Colors.white),
                 )),
                 Positioned(bottom: 8, left: 10, child: Text(label,

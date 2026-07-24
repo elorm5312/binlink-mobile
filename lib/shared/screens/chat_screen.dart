@@ -39,7 +39,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool get _collector => FlavorConfig.isCollector;
   Color get _accent => _collector ? CollectorColors.green : HouseholdColors.primary;
   Color get _bg => _collector ? CollectorColors.dark : HouseholdColors.warmWhite;
-  Color get _surface => _collector ? CollectorColors.charcoal : Colors.white;
+  Color get _surface => _collector ? CollectorColors.charcoal : HouseholdColors.card;
   Color get _onSurface => _collector ? CollectorColors.white : HouseholdColors.charcoal;
   Color get _muted => _collector ? CollectorColors.gray : HouseholdColors.gray;
 

@@ -1,26 +1,81 @@
 {
   "project_info": {
-    "project_number": "000000000000",
-    "project_id": "binlink-placeholder",
-    "storage_bucket": "binlink-placeholder.appspot.com"
+    "project_number": "781294511680",
+    "project_id": "binlink-bd0df",
+    "storage_bucket": "binlink-bd0df.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+        "mobilesdk_app_id": "1:781294511680:android:815d650d0d7bc2c43321a5",
         "android_client_info": {
-          "package_name": "com.binlink.eco"
+          "package_name": "com.binlink.collector"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "781294511680-jsjrfugd7njil6efu30avs7uo6h3rgd2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.binlink.collector",
+            "certificate_hash": "9cc2b745b7be7637b539fd79fa1fd502898719cd"
+          }
+        },
+        {
+          "client_id": "781294511680-si9b7g4ev1lh2re4psqvij7tr92c4qao.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "placeholder_replace_with_real_key"
+          "current_key": "AIzaSyCVZwMUpuauL52XloTY6JdyqxDUi2YJfSg"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "781294511680-si9b7g4ev1lh2re4psqvij7tr92c4qao.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:781294511680:android:cf267598287b62c53321a5",
+        "android_client_info": {
+          "package_name": "com.binlink.eco"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "781294511680-s352071dl5vfibk3runsm34q9rgd8d0l.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.binlink.eco",
+            "certificate_hash": "9cc2b745b7be7637b539fd79fa1fd502898719cd"
+          }
+        },
+        {
+          "client_id": "781294511680-si9b7g4ev1lh2re4psqvij7tr92c4qao.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCVZwMUpuauL52XloTY6JdyqxDUi2YJfSg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "781294511680-si9b7g4ev1lh2re4psqvij7tr92c4qao.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

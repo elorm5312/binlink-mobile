@@ -63,7 +63,7 @@ class _JobCard extends StatelessWidget {
       child: CPanel(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const CIcon('jobs', color: CollectorColors.green),
+            CIcon('jobs', color: CollectorColors.green),
             const SizedBox(width: 12),
             Expanded(child: Text(job['pickupAddress'] as String? ?? 'Pickup address', maxLines: 1, overflow: TextOverflow.ellipsis, style: CollectorType.section)),
             Text(Fmt.currency(Fmt.toDouble(job['totalAmount']) * .9), style: CollectorType.caption.copyWith(color: CollectorColors.green, fontWeight: FontWeight.w900)),

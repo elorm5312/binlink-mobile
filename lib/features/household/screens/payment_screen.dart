@@ -62,7 +62,7 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
           padding: const EdgeInsets.all(20),
           children: [
             Row(children: [
-              IconButton(onPressed: () => Navigator.maybePop(context), icon: const HIcon('route', color: HouseholdColors.forest)),
+              IconButton(onPressed: () => Navigator.maybePop(context), icon: HIcon('route', color: HouseholdColors.forest)),
               const SizedBox(width: 8),
               Text('Payment', style: HouseholdType.title),
             ]),
@@ -77,7 +77,7 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
             ),
             if (_error != null) ...[
               const SizedBox(height: 12),
-              HCard(color: const Color(0xFFFFF1F2), child: Text(_error!, style: HouseholdType.body.copyWith(color: HouseholdColors.danger))),
+              HCard(color: HouseholdColors.dangerTint, child: Text(_error!, style: HouseholdType.body.copyWith(color: HouseholdColors.danger))),
             ],
             if (_successRef != null) ...[
               const SizedBox(height: 12),
@@ -105,7 +105,7 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
             if (_method == 'wallet') ...[
               const SizedBox(height: 12),
               HCard(
-                color: walletBalance < amountValue ? const Color(0xFFFFF1F2) : Colors.white,
+                color: walletBalance < amountValue ? HouseholdColors.dangerTint : HouseholdColors.card,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -385,7 +385,7 @@ class _PaymentMethod extends StatelessWidget {
             _PaymentLogo(id: id),
             const SizedBox(width: 12),
             Expanded(child: Text(label, style: HouseholdType.section)),
-            if (selected) const HIcon('security', color: HouseholdColors.primary),
+            if (selected) HIcon('security', color: HouseholdColors.primary),
           ]),
         ),
       ),

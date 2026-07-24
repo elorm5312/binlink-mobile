@@ -233,6 +233,8 @@ class HouseholdProvider extends ChangeNotifier {
     String? frequency,
     String? preferredCollectorId,
     String? promoCode,
+    String? pricingMode,
+    List<String>? bulkyPhotos,
   }) async {
     _setLoading(true);
     try {
@@ -251,6 +253,8 @@ class HouseholdProvider extends ChangeNotifier {
         if (frequency != null) 'frequency': frequency,
         if (preferredCollectorId != null) 'preferredCollectorId': preferredCollectorId,
         if (promoCode != null && promoCode.isNotEmpty) 'promoCode': promoCode,
+        if (pricingMode != null) 'pricingMode': pricingMode,
+        if (bulkyPhotos != null && bulkyPhotos.isNotEmpty) 'bulkyPhotos': bulkyPhotos,
       });
       final booking = Map<String, dynamic>.from(res.data['data'] as Map);
       _bookings.insert(0, booking);
@@ -268,6 +272,21 @@ class HouseholdProvider extends ChangeNotifier {
       return null;
     } finally {
       _setLoading(false);
+    }
+  }
+
+  /// Uploads one bulky-item photo (before the booking exists) and returns its
+  /// URL, or null on failure.
+  Future<String?> uploadBulkyPhoto(String filePath) async {
+    try {
+      final fileName = filePath.split('/').last;
+      final formData = FormData.fromMap({
+        'photo': await MultipartFile.fromFile(filePath, filename: fileName),
+      });
+      final res = await ApiClient.upload('/api/bookings/bulky-photos', formData);
+      return res.data['data']?['url'] as String?;
+    } catch (_) {
+      return null;
     }
   }
 

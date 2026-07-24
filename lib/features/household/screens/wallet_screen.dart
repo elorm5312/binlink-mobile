@@ -111,7 +111,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   ...provider.availableRewards.map((reward) => Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: Row(children: [
-                          const HIcon('coupon', color: HouseholdColors.primary),
+                          HIcon('coupon', color: HouseholdColors.primary),
                           const SizedBox(width: 12),
                           Expanded(child: Text(reward.title, style: HouseholdType.body)),
                           Text('${reward.pointsRequired} pts', style: HouseholdType.caption.copyWith(color: reward.eligible ? HouseholdColors.ecoGreen : HouseholdColors.gray)),

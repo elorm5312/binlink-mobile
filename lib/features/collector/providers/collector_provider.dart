@@ -283,11 +283,15 @@ class CollectorProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> updateStatus(String bookingId, String action, {double? actualWeightKg}) async {
+  Future<void> updateStatus(String bookingId, String action, {double? actualWeightKg, double? agreedAmount}) async {
     try {
       final body = <String, dynamic>{};
       if (action == 'complete' && actualWeightKg != null) {
         body['actualWeightKg'] = actualWeightKg;
+      }
+      // Negotiated pricing: the price agreed with the household on-site.
+      if (action == 'complete' && agreedAmount != null) {
+        body['agreedAmount'] = agreedAmount;
       }
       await ApiClient.put('/api/bookings/$bookingId/$action', body.isEmpty ? null : body);
       final statusMap = {

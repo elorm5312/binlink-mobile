@@ -95,7 +95,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
         padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
         child: Container(
           padding: const EdgeInsets.all(22),
-          decoration: const BoxDecoration(color: CollectorColors.dark, borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+          decoration: BoxDecoration(color: CollectorColors.dark, borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Text('Withdraw funds', style: CollectorType.title),
             const SizedBox(height: 16),

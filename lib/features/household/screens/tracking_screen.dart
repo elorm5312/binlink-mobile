@@ -29,6 +29,10 @@ class _TrackingScreenState extends State<TrackingScreen> {
   bool _ratingShown = false;
   int? _roadEtaMin;
   ll.LatLng? _lastEtaFrom;
+  List<ll.LatLng> _routePoints = const [];
+  double _collectorBearing = 0.0;
+  ll.LatLng? _prevCollectorPos;
+  bool _arrivingBuzzed = false;
 
   @override
   void initState() {
@@ -94,12 +98,23 @@ class _TrackingScreenState extends State<TrackingScreen> {
 
     final collector = (prov.activeBooking?['collector'] as Map<String, dynamic>?) ?? (_booking['collector'] as Map<String, dynamic>?);
 
+    // Derive travel heading from consecutive positions so the truck points
+    // the way it's driving (like Uber/Bolt).
+    if (collectorLat != null && collectorLng != null) {
+      final cur = ll.LatLng(collectorLat, collectorLng);
+      final prev = _prevCollectorPos;
+      if (prev != null && (prev.latitude != cur.latitude || prev.longitude != cur.longitude)) {
+        _collectorBearing = const ll.Distance().bearing(prev, cur);
+      }
+      _prevCollectorPos = cur;
+    }
+
     final collectorEntry = collectorLat != null && collectorLng != null
         ? <String, dynamic>{
             'id': collector?['id'] ?? 'live-collector',
             'lastLat': collectorLat,
             'lastLng': collectorLng,
-            'bearing': 0.0,
+            'bearing': _collectorBearing,
             'fullName': collector?['fullName'] ?? 'Collector',
           }
         : null;
@@ -114,6 +129,14 @@ class _TrackingScreenState extends State<TrackingScreen> {
       etaMinutes = _roadEtaMin ?? (meters / 1000 / 22 * 60).round().clamp(1, 120);
     } else {
       _roadEtaMin = null;
+    }
+
+    // Buzz once as the collector is about to arrive; re-arm if ETA grows again.
+    if (etaActive && etaMinutes != null && etaMinutes <= 1 && !_arrivingBuzzed) {
+      _arrivingBuzzed = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => HapticFeedback.mediumImpact());
+    } else if (etaMinutes != null && etaMinutes > 2) {
+      _arrivingBuzzed = false;
     }
 
     // Auto-prompt a rating the moment the pickup completes.
@@ -139,6 +162,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
                     initialPosition: pickupPos,
                     pickupPosition: pickupPos,
                     collectors: collectorEntry != null ? [collectorEntry] : [],
+                    routePoints: etaActive ? _routePoints : const [],
                     myLocationEnabled: false,
                   )
                 : _DarkPlaceholder(status: _status),
@@ -210,7 +234,10 @@ class _TrackingScreenState extends State<TrackingScreen> {
     try {
       final route = await RoutingService.getRoute(from, to);
       if (mounted && route.travelTimeSec > 0) {
-        setState(() => _roadEtaMin = route.travelTimeMin.clamp(1, 120));
+        setState(() {
+          _roadEtaMin = route.travelTimeMin.clamp(1, 120);
+          _routePoints = route.points; // drives the on-map route line
+        });
       }
     } catch (_) {}
   }
@@ -222,7 +249,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
       context: context,
       isScrollControlled: true,
       isDismissible: false,
-      backgroundColor: Colors.white,
+      backgroundColor: HouseholdColors.card,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (_) => _RatingSheet(
         bookingId: bookingId,
@@ -285,7 +312,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
     await showModalBottomSheet<void>(
       context: ctx,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: HouseholdColors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -303,12 +330,12 @@ class _TrackingScreenState extends State<TrackingScreen> {
     showModalBottomSheet<void>(
       context: ctx,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: HouseholdColors.card,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (sheetCtx) => Padding(
         padding: EdgeInsets.fromLTRB(24, 20, 24, MediaQuery.paddingOf(sheetCtx).bottom + 24),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFD1D5DB), borderRadius: BorderRadius.circular(2)))),
+          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: HouseholdColors.border, borderRadius: BorderRadius.circular(2)))),
           const SizedBox(height: 20),
           Text('Cancel this pickup?', style: HouseholdType.title),
           const SizedBox(height: 8),
@@ -478,14 +505,14 @@ class _BottomCard extends StatelessWidget {
     final address = booking['pickupAddress'] as String? ?? 'Pickup location';
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [BoxShadow(color: Color(0x26000000), blurRadius: 28, offset: Offset(0, -8))],
+      decoration: BoxDecoration(
+        color: HouseholdColors.card,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: const [BoxShadow(color: Color(0x26000000), blurRadius: 28, offset: Offset(0, -8))],
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         const SizedBox(height: 10),
-        Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFD1D5DB), borderRadius: BorderRadius.circular(2))),
+        Container(width: 40, height: 4, decoration: BoxDecoration(color: HouseholdColors.border, borderRadius: BorderRadius.circular(2))),
         Padding(
           padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.paddingOf(context).bottom + 20),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -506,7 +533,7 @@ class _BottomCard extends StatelessWidget {
                 isFavorite: isFavorite,
               ),
               const SizedBox(height: 14),
-              const Divider(height: 1, color: Color(0xFFEEEAE2)),
+              Divider(height: 1, color: HouseholdColors.border),
               const SizedBox(height: 14),
             ] else if (status == 'SEARCHING') ...[
               _SearchAnim(),
@@ -526,7 +553,14 @@ class _BottomCard extends StatelessWidget {
               Row(children: [
                 Icon(PhosphorIcons.money(), size: 15, color: HouseholdColors.gray),
                 const SizedBox(width: 8),
-                Text('GHS $amount', style: HouseholdType.number.copyWith(color: HouseholdColors.primary, fontSize: 16)),
+                // Negotiated bookings have no amount until the collector enters
+                // the agreed price at completion.
+                Text(
+                  booking['pricingMode'] == 'NEGOTIATED' && ((num.tryParse('$amount') ?? 0) <= 0)
+                      ? 'Price agreed with collector on arrival'
+                      : 'GHS $amount',
+                  style: HouseholdType.number.copyWith(color: HouseholdColors.primary, fontSize: 16),
+                ),
               ]),
             ],
             const SizedBox(height: 16),
@@ -653,18 +687,22 @@ class _EtaPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final arriving = minutes <= 1;
+    final color = arriving ? HouseholdColors.ecoGreen : HouseholdColors.primary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: HouseholdColors.primary.withAlpha(20),
+        color: color.withAlpha(20),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: HouseholdColors.primary.withAlpha(60)),
+        border: Border.all(color: color.withAlpha(60)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(PhosphorIcons.timer(PhosphorIconsStyle.fill), size: 14, color: HouseholdColors.primary),
+        Icon(
+          arriving ? PhosphorIcons.mapPin(PhosphorIconsStyle.fill) : PhosphorIcons.timer(PhosphorIconsStyle.fill),
+          size: 14, color: color),
         const SizedBox(width: 6),
-        Text('~$minutes min', style: HouseholdType.caption.copyWith(
-          color: HouseholdColors.primary, fontWeight: FontWeight.w700)),
+        Text(arriving ? 'Arriving' : '~$minutes min', style: HouseholdType.caption.copyWith(
+          color: color, fontWeight: FontWeight.w700)),
       ]),
     );
   }
@@ -736,7 +774,7 @@ class _TipSheetState extends State<_TipSheet> {
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 14, 20, MediaQuery.viewInsetsOf(context).bottom + 24),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFD1D5DB), borderRadius: BorderRadius.circular(2)))),
+        Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: HouseholdColors.border, borderRadius: BorderRadius.circular(2)))),
         const SizedBox(height: 18),
         if (_done) ...[
           Center(child: Icon(PhosphorIcons.checkCircle(PhosphorIconsStyle.fill), size: 56, color: HouseholdColors.ecoGreen)),
@@ -760,7 +798,7 @@ class _TipSheetState extends State<_TipSheet> {
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: sel ? HouseholdColors.primary.withAlpha(22) : const Color(0xFFF5F1EA),
+                  color: sel ? HouseholdColors.primary.withAlpha(22) : HouseholdColors.sand,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: sel ? HouseholdColors.primary : Colors.transparent, width: 1.5),
                 ),
@@ -867,7 +905,7 @@ class _RatingSheetState extends State<_RatingSheet> {
     return Padding(
       padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.viewInsetsOf(context).bottom + 24),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFD1D5DB), borderRadius: BorderRadius.circular(2)))),
+        Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: HouseholdColors.border, borderRadius: BorderRadius.circular(2)))),
         const SizedBox(height: 18),
         Text('Rate ${widget.collectorName}', style: HouseholdType.title),
         const SizedBox(height: 4),
@@ -878,7 +916,7 @@ class _RatingSheetState extends State<_RatingSheet> {
           return IconButton(
             onPressed: () { HapticFeedback.lightImpact(); setState(() => _rating = i + 1); },
             icon: Icon(PhosphorIcons.star(filled ? PhosphorIconsStyle.fill : PhosphorIconsStyle.regular),
-                size: 38, color: filled ? HouseholdColors.warning : const Color(0xFFD1D5DB)),
+                size: 38, color: filled ? HouseholdColors.warning : HouseholdColors.border),
           );
         }))),
         const SizedBox(height: 14),
@@ -889,7 +927,7 @@ class _RatingSheetState extends State<_RatingSheet> {
           decoration: InputDecoration(
             hintText: 'Add a comment (optional)',
             filled: true,
-            fillColor: const Color(0xFFF5F1EA),
+            fillColor: HouseholdColors.sand,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
           ),
         ),

@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/design_system/household_design_system.dart';
 import '../../../core/design_system/theme_provider.dart';
@@ -257,13 +258,15 @@ class _HelpScreenState extends State<HelpScreen> {
                   labelText: 'Message',
                   hintText: 'Describe the issue, payment reference, or pickup problem.',
                   filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: Color(0xFFE8E4DD))),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: Color(0xFFE8E4DD))),
+                  fillColor: HouseholdColors.card,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide(color: HouseholdColors.border)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide(color: HouseholdColors.border)),
                 ),
               ),
             ]),
           ),
+          const SizedBox(height: 12),
+          const _DirectContactCard(),
           const SizedBox(height: 12),
           HButton(label: 'Submit request', icon: 'support', loading: _loading, onPressed: _submit),
           const SizedBox(height: 12),
@@ -274,6 +277,76 @@ class _HelpScreenState extends State<HelpScreen> {
             ),
         ]),
       ),
+    );
+  }
+}
+
+// ── Direct contact card (call / email the BinLink team) ──────────────────────
+class _DirectContactCard extends StatelessWidget {
+  const _DirectContactCard();
+
+  static const _phone = '0233200022';
+  static const _email = 'binlinkeco@gmail.com';
+
+  Future<void> _launch(String uri) async {
+    final u = Uri.parse(uri);
+    if (await canLaunchUrl(u)) await launchUrl(u);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return HCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Reach us directly', style: HouseholdType.section),
+        const SizedBox(height: 4),
+        Text('Call or email the BinLink team.', style: HouseholdType.caption),
+        const SizedBox(height: 14),
+        _ContactTile(
+          icon: HIcon('phone', color: HouseholdColors.primary, size: 20),
+          label: 'Call us',
+          value: '0233 200 022',
+          onTap: () => _launch('tel:$_phone'),
+        ),
+        const SizedBox(height: 10),
+        _ContactTile(
+          icon: Icon(Icons.mail_outline_rounded, size: 20, color: HouseholdColors.primary),
+          label: 'Email us',
+          value: _email,
+          onTap: () => _launch('mailto:$_email'),
+        ),
+      ]),
+    );
+  }
+}
+
+class _ContactTile extends StatelessWidget {
+  const _ContactTile({required this.icon, required this.label, required this.value, required this.onTap});
+  final Widget icon;
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Row(children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(color: HouseholdColors.primary.withAlpha(20), shape: BoxShape.circle),
+          child: Center(child: icon),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: HouseholdType.caption),
+            Text(value, style: HouseholdType.section.copyWith(fontSize: 15)),
+          ]),
+        ),
+        Icon(Icons.chevron_right_rounded, size: 20, color: HouseholdColors.gray),
+      ]),
     );
   }
 }
@@ -594,7 +667,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                 child: HCard(
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
                   child: Row(children: [
-                    const HIcon('home', color: HouseholdColors.primary),
+                    HIcon('home', color: HouseholdColors.primary),
                     const SizedBox(width: 12),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(a['label'] as String? ?? 'Saved address', style: HouseholdType.section),
@@ -757,7 +830,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Row(children: [
-                      const HIcon('calendar', color: HouseholdColors.primary),
+                      HIcon('calendar', color: HouseholdColors.primary),
                       const SizedBox(width: 12),
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(_planLabel(s['plan'] as String? ?? 'WEEKLY'), style: HouseholdType.section),
@@ -831,9 +904,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
   InputDecoration _inputDecoration(String label) => InputDecoration(
         labelText: label,
         filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: Color(0xFFE8E4DD))),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: Color(0xFFE8E4DD))),
+        fillColor: HouseholdColors.card,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide(color: HouseholdColors.border)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide(color: HouseholdColors.border)),
       );
 }
 
@@ -910,8 +983,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await prefs.setBool('household_email_receipts', _emailReceipts);
       await prefs.setBool('household_sound', _sound);
       await stringsProvider.setLanguage(_language);
+      final themeChanged = themeProvider.themeMode != _themeMode;
       await themeProvider.setThemeMode(_themeMode);
-      if (mounted) setState(() => _success = 'Settings saved.');
+      if (!mounted) return;
+      if (themeChanged) {
+        // Screens already on the stack were painted with the old palette —
+        // rebuild the app from home so the new theme applies everywhere.
+        Navigator.of(context).pushNamedAndRemoveUntil('/household', (r) => false);
+        return;
+      }
+      setState(() => _success = 'Settings saved.');
     } catch (_) {
       if (mounted) setState(() => _error = 'Could not save settings.');
     }
@@ -997,9 +1078,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   InputDecoration _settingsDecoration(String label) => InputDecoration(
         labelText: label,
         filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: Color(0xFFE8E4DD))),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: const BorderSide(color: Color(0xFFE8E4DD))),
+        fillColor: HouseholdColors.card,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide(color: HouseholdColors.border)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide(color: HouseholdColors.border)),
       );
 }
 
@@ -1031,7 +1112,7 @@ class _FormScreen extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           children: [
             Row(children: [
-              IconButton(onPressed: () => Navigator.maybePop(context), icon: const HIcon('route', color: HouseholdColors.forest)),
+              IconButton(onPressed: () => Navigator.maybePop(context), icon: HIcon('route', color: HouseholdColors.forest)),
               const SizedBox(width: 8),
               Expanded(child: Text(title, style: HouseholdType.title)),
             ]),
@@ -1115,7 +1196,9 @@ class _NotificationTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: HCard(
-        color: notification.isRead ? Colors.white : const Color(0xFFF0FFF6),
+        color: notification.isRead
+            ? HouseholdColors.card
+            : (HouseholdColors.isDark ? const Color(0xFF14241B) : const Color(0xFFF0FFF6)),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         child: InkWell(
           onTap: onTap,
@@ -1138,7 +1221,7 @@ class _NotificationTile extends StatelessWidget {
                     width: 10,
                     height: 10,
                     margin: const EdgeInsets.only(top: 8),
-                    decoration: const BoxDecoration(color: HouseholdColors.primary, shape: BoxShape.circle),
+                    decoration: BoxDecoration(color: HouseholdColors.primary, shape: BoxShape.circle),
                   ),
               ],
             ),
@@ -1192,7 +1275,7 @@ class TermsScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
           children: [
             Row(children: [
-              IconButton(onPressed: () => Navigator.maybePop(context), icon: const HIcon('route', color: HouseholdColors.forest)),
+              IconButton(onPressed: () => Navigator.maybePop(context), icon: HIcon('route', color: HouseholdColors.forest)),
               Expanded(child: Text('Terms of Service', style: HouseholdType.title)),
             ]),
             const SizedBox(height: 6),
@@ -1258,6 +1341,6 @@ const _kTermsSections = [
   ),
   (
     '11. Contact',
-    'For questions about these Terms of Service, please contact us at support@binlink.eco or via the Help & Support section in the app.',
+    'For questions about these Terms of Service, please contact us at binlinkeco@gmail.com, call 0233200022, or use the Help & Support section in the app.',
   ),
 ];

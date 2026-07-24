@@ -58,7 +58,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   IconButton(
                     onPressed: () => provider.loadAdminDashboard(range: _range),
-                    icon: const HIcon('route', color: HouseholdColors.charcoal),
+                    icon: HIcon('route', color: HouseholdColors.charcoal),
                   ),
                 ],
               ),
@@ -223,7 +223,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (d) => StatefulBuilder(builder: (d2, setLocal) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: HouseholdColors.card,
         title: Text('New promo code', style: HouseholdType.title),
         content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(controller: codeCtrl, textCapitalization: TextCapitalization.characters,
@@ -830,7 +830,7 @@ class _CollectorApprovalTile extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const HIcon('profile', color: HouseholdColors.primary),
+            HIcon('profile', color: HouseholdColors.primary),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(name, style: HouseholdType.section),
@@ -873,7 +873,7 @@ class _CollectorApprovalTile extends StatelessWidget {
             Expanded(child: OutlinedButton(
               onPressed: () => _reject(context, collector['id'] as String),
               style: OutlinedButton.styleFrom(foregroundColor: HouseholdColors.danger,
-                  side: const BorderSide(color: HouseholdColors.danger)),
+                  side: BorderSide(color: HouseholdColors.danger)),
               child: const Text('Reject'),
             )),
             const SizedBox(width: 10),
@@ -952,7 +952,7 @@ class _PromoTile extends StatelessWidget {
       child: HCard(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         child: Row(children: [
-          const Icon(Icons.local_offer, color: HouseholdColors.primary),
+          Icon(Icons.local_offer, color: HouseholdColors.primary),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(promo['code'] as String? ?? '', style: HouseholdType.section.copyWith(letterSpacing: 2)),

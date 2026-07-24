@@ -163,7 +163,7 @@ class _PickupCard extends StatelessWidget {
       child: HCard(
         child: Row(
           children: [
-            Container(width: 48, height: 48, decoration: BoxDecoration(color: HouseholdColors.primary.withAlpha(24), borderRadius: BorderRadius.circular(18)), child: const Center(child: HIcon('pickup', color: HouseholdColors.primary))),
+            Container(width: 48, height: 48, decoration: BoxDecoration(color: HouseholdColors.primary.withAlpha(24), borderRadius: BorderRadius.circular(18)), child: Center(child: HIcon('pickup', color: HouseholdColors.primary))),
             const SizedBox(width: 14),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -172,7 +172,7 @@ class _PickupCard extends StatelessWidget {
                 Text(status.replaceAll('_', ' '), style: HouseholdType.caption.copyWith(color: HouseholdColors.primary, fontWeight: FontWeight.w700)),
               ]),
             ),
-            const HIcon('route', color: HouseholdColors.gray),
+            HIcon('route', color: HouseholdColors.gray),
           ],
         ),
       ),

@@ -63,7 +63,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
         title: Text('Invite & earn', style: HouseholdType.title),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: HouseholdColors.primary))
+          ? Center(child: CircularProgressIndicator(color: HouseholdColors.primary))
           : ListView(padding: const EdgeInsets.all(20), children: [
               HCard(
                 padding: const EdgeInsets.all(24),
@@ -108,7 +108,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
               const SizedBox(height: 14),
               HCard(
                 child: Row(children: [
-                  const HIcon('profile', color: HouseholdColors.primary),
+                  HIcon('profile', color: HouseholdColors.primary),
                   const SizedBox(width: 12),
                   Expanded(child: Text('Friends referred', style: HouseholdType.section)),
                   Text('$referred', style: HouseholdType.number.copyWith(

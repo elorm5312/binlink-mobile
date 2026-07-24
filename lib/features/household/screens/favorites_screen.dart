@@ -82,7 +82,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
 
   Widget _body(HouseholdProvider prov, List<Map<String, dynamic>> favorites) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator(color: HouseholdColors.primary));
+      return Center(child: CircularProgressIndicator(color: HouseholdColors.primary));
     }
     if (favorites.isEmpty) {
       return Center(

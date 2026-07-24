@@ -44,7 +44,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           child: Form(
             key: _formKey,
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              IconButton(onPressed: () => Navigator.maybePop(context), icon: collector ? const CIcon('route', color: CollectorColors.white) : const HIcon('route', color: HouseholdColors.forest)),
+              IconButton(onPressed: () => Navigator.maybePop(context), icon: collector ? CIcon('route', color: CollectorColors.white) : HIcon('route', color: HouseholdColors.forest)),
               const SizedBox(height: 18),
               Builder(builder: (_) {
                 final asset = collector ? CollectorAssets.noJobs : HouseholdAssets.forgotPassword;
@@ -119,7 +119,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 hintText: '000000',
                 errorText: _error,
                 filled: true,
-                fillColor: collector ? CollectorColors.charcoal : Colors.white,
+                fillColor: collector ? CollectorColors.charcoal : HouseholdColors.card,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(22)),
               ),
             ),

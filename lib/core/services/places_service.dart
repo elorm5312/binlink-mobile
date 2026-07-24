@@ -46,7 +46,7 @@ class PlacesService {
     connectTimeout: const Duration(seconds: 8),
     receiveTimeout: const Duration(seconds: 8),
     headers: {
-      'User-Agent': 'BinLinkEco/2.0 (support@binlink.eco)',
+      'User-Agent': 'BinLinkEco/2.0 (binlinkeco@gmail.com)',
       'Accept-Language': 'en',
     },
   ));

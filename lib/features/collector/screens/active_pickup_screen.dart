@@ -28,6 +28,62 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
   bool _photoLoading = false;
   bool _reportingException = false;
 
+  bool get _isNegotiated => widget.booking['pricingMode'] == 'NEGOTIATED';
+
+  List<String> get _bulkyPhotos =>
+      ((widget.booking['bulkyPhotos'] as List?) ?? const []).whereType<String>().toList();
+
+  /// Asks the collector for the price agreed with the household. Returns null
+  /// if cancelled.
+  Future<double?> _askAgreedPrice() async {
+    final ctrl = TextEditingController();
+    String? fieldError;
+    return showDialog<double>(
+      context: context,
+      builder: (d) => StatefulBuilder(
+        builder: (d, setDialogState) => AlertDialog(
+          backgroundColor: CollectorColors.charcoal,
+          title: Text('Agreed price', style: CollectorType.title),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('Enter the amount (GHS) you agreed with the customer for this pickup.',
+                style: CollectorType.caption),
+            const SizedBox(height: 14),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: CollectorType.title,
+              decoration: InputDecoration(
+                prefixText: 'GHS ',
+                prefixStyle: CollectorType.title,
+                hintText: '0.00',
+                errorText: fieldError,
+                filled: true,
+                fillColor: CollectorColors.dark,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(d), child: const Text('Cancel')),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: CollectorColors.green),
+              onPressed: () {
+                final v = double.tryParse(ctrl.text.trim());
+                if (v == null || v <= 0) {
+                  setDialogState(() => fieldError = 'Enter a valid amount');
+                  return;
+                }
+                Navigator.pop(d, v);
+              },
+              child: const Text('Confirm'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _openChat() {
     final bookingId = widget.booking['id'] as String?;
     if (bookingId == null) return;
@@ -98,7 +154,7 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
           left: 16,
           right: 16,
           child: CPanel(child: Row(children: [
-            IconButton(onPressed: () => Navigator.maybePop(context), icon: const CIcon('route', color: CollectorColors.white)),
+            IconButton(onPressed: () => Navigator.maybePop(context), icon: CIcon('route', color: CollectorColors.white)),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(_status.replaceAll('_', ' '), style: CollectorType.title),
               Text(widget.booking['pickupAddress'] as String? ?? 'Active pickup route', maxLines: 1, overflow: TextOverflow.ellipsis, style: CollectorType.caption),
@@ -131,6 +187,48 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
               const SizedBox(height: 10),
               Text(_etaText, style: CollectorType.hero),
               Text('Navigation, proof capture, weight and completion', style: CollectorType.caption),
+              if (_isNegotiated) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: CollectorColors.green.withAlpha(28),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(PhosphorIcons.handshake(), color: CollectorColors.green, size: 16),
+                    const SizedBox(width: 8),
+                    Flexible(child: Text('Negotiate the price with the customer on arrival',
+                        style: CollectorType.caption.copyWith(color: CollectorColors.green, fontWeight: FontWeight.w700))),
+                  ]),
+                ),
+              ],
+              if (_bulkyPhotos.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 64,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _bulkyPhotos.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (_, i) => GestureDetector(
+                      onTap: () => showDialog(
+                        context: context,
+                        builder: (_) => Dialog(
+                          backgroundColor: Colors.transparent,
+                          child: InteractiveViewer(child: Image.network(_bulkyPhotos[i])),
+                        ),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.network(_bulkyPhotos[i], width: 64, height: 64, fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(width: 64, height: 64, color: CollectorColors.charcoal,
+                                child: Icon(PhosphorIcons.imageBroken(), color: CollectorColors.white, size: 20))),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               if (_photoError != null) ...[
                 const SizedBox(height: 10),
                 Text(_photoError!, style: CollectorType.caption.copyWith(color: CollectorColors.red)),
@@ -147,7 +245,12 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
                 final action = _nextAction(_status);
                 final bookingId = widget.booking['id'] as String?;
                 if (bookingId == null) return;
-                await provider.updateStatus(bookingId, action, actualWeightKg: _weight);
+                double? agreedAmount;
+                if (action == 'complete' && _isNegotiated) {
+                  agreedAmount = await _askAgreedPrice();
+                  if (agreedAmount == null || !mounted) return;
+                }
+                await provider.updateStatus(bookingId, action, actualWeightKg: _weight, agreedAmount: agreedAmount);
                 if (!mounted) return;
                 if (provider.error != null) {
                   messenger.showSnackBar(

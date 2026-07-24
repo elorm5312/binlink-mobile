@@ -33,7 +33,7 @@ class _HomeTabState extends State<HomeTab> {
     final pos = widget.myPos;
     final provider = context.watch<HouseholdProvider>();
     if (pos == null) {
-      return const Center(child: SearchingRadarWidget(color: HouseholdColors.primary));
+      return Center(child: SearchingRadarWidget(color: HouseholdColors.primary));
     }
     final active = provider.activeBooking;
     final pickupMarker = _pickupMarkerFor(active, pos);
@@ -54,10 +54,10 @@ class _HomeTabState extends State<HomeTab> {
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             radius: 30,
             child: Row(children: [
-              const HIcon('location', color: HouseholdColors.primary),
+              HIcon('location', color: HouseholdColors.primary),
               const SizedBox(width: 12),
               Expanded(child: Text('Where should we collect?', style: HouseholdType.section)),
-              const HIcon('search', color: HouseholdColors.charcoal),
+              HIcon('search', color: HouseholdColors.charcoal),
             ]),
           ),
         ),
@@ -121,7 +121,7 @@ class _BookingPanel extends StatelessWidget {
         return HCard(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
             Row(children: [
-              const SizedBox(width: 92, height: 72, child: Center(child: SearchingRadarWidget(color: HouseholdColors.primary, size: 72))),
+              SizedBox(width: 92, height: 72, child: Center(child: SearchingRadarWidget(color: HouseholdColors.primary, size: 72))),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('Finding a collector...', style: HouseholdType.section),
@@ -216,9 +216,9 @@ class _CtaCard extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
         decoration: BoxDecoration(
-          color: primary ? HouseholdColors.primary : Colors.white,
+          color: primary ? HouseholdColors.primary : HouseholdColors.card,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: primary ? HouseholdColors.primary : const Color(0xFFE8E4DD)),
+          border: Border.all(color: primary ? HouseholdColors.primary : HouseholdColors.border),
           boxShadow: primary
               ? [BoxShadow(color: HouseholdColors.primary.withAlpha(50), blurRadius: 16, offset: const Offset(0, 8))]
               : [BoxShadow(color: HouseholdColors.forest.withAlpha(12), blurRadius: 12, offset: const Offset(0, 4))],

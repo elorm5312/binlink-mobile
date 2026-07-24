@@ -78,7 +78,7 @@ void _showRateDialog(BuildContext context) {
     builder: (dialogContext) {
       return StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          backgroundColor: Colors.white,
+          backgroundColor: HouseholdColors.card,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
           title: Text('Rate BinLink', style: HouseholdType.title),
           content: Column(
@@ -92,7 +92,7 @@ void _showRateDialog(BuildContext context) {
                   final selected = i < rating;
                   return IconButton(
                     onPressed: () => setState(() => rating = i + 1),
-                    icon: HIcon('star', size: 34, color: selected ? HouseholdColors.warning : const Color(0xFFD1D5DB)),
+                    icon: HIcon('star', size: 34, color: selected ? HouseholdColors.warning : HouseholdColors.border),
                   );
                 }),
               ),
@@ -141,7 +141,7 @@ class _ProfileAction extends StatelessWidget {
             HIcon(icon, color: HouseholdColors.primary),
             const SizedBox(width: 14),
             Expanded(child: Text(label, style: HouseholdType.section)),
-            const HIcon('route', color: HouseholdColors.gray, size: 20),
+            HIcon('route', color: HouseholdColors.gray, size: 20),
           ]),
         ),
       ),
