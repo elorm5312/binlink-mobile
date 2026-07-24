@@ -291,12 +291,17 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
                   agreedAmount = await _askAgreedPrice();
                   if (agreedAmount == null || !mounted) return;
                 }
-                await provider.updateStatus(bookingId, action, actualWeightKg: _weight, agreedAmount: agreedAmount);
+                final ok = await provider.updateStatus(bookingId, action, actualWeightKg: _weight, agreedAmount: agreedAmount);
                 if (!mounted) return;
-                if (provider.error != null) {
+                if (!ok) {
                   messenger.showSnackBar(
-                    SnackBar(content: Text(provider.error!)),
+                    SnackBar(content: Text(provider.error ?? 'Could not update status. Try again.')),
                   );
+                  // Recover from a desync: adopt the server's real status.
+                  final serverStatus = provider.statusForBooking(bookingId);
+                  if (serverStatus != null && serverStatus != _status) {
+                    setState(() => _status = serverStatus);
+                  }
                   return;
                 }
                 final nextStatus = _nextStatus(_status);

@@ -53,6 +53,12 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_color"
             android:resource="@color/binlink_navy" />
+        <!-- Channel the backend pushes to (channelId: 'binlink_default'). The FCM
+             SDK auto-creates this channel so Android 8+ actually shows the
+             notifications (posting to a missing channel is silently dropped). -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="binlink_default" />
 
         <!-- Override flutter_foreground_task plugin manifest to add location type.
              tools:replace merges our foregroundServiceType onto the plugin's declaration. -->

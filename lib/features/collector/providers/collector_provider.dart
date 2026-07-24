@@ -238,9 +238,10 @@ class CollectorProvider extends ChangeNotifier {
         lng: pos.longitude,
       );
 
-      // Targeted broadcast to active booking rooms
+      // Targeted broadcast to active booking rooms — starts at ACCEPTED so the
+      // household sees the collector approaching from the moment they accept.
       for (final pickup in _activePickups) {
-        if (['EN_ROUTE', 'ON_THE_WAY', 'ARRIVED', 'COLLECTING'].contains(pickup['status'])) {
+        if (['ASSIGNED', 'ACCEPTED', 'EN_ROUTE', 'ON_THE_WAY', 'ARRIVED', 'COLLECTING'].contains(pickup['status'])) {
           SocketService.broadcastLocation(
             bookingId: pickup['id'] as String,
             lat: pos.latitude,
@@ -286,7 +287,22 @@ class CollectorProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> updateStatus(String bookingId, String action, {double? actualWeightKg, double? agreedAmount}) async {
+  /// Current known status of a booking (active or completed), or null.
+  String? statusForBooking(String bookingId) {
+    for (final list in [_activePickups, _completedPickups]) {
+      final match = list.firstWhere((p) => p['id'] == bookingId, orElse: () => const {});
+      if (match.isNotEmpty) return match['status'] as String?;
+    }
+    return null;
+  }
+
+  /// Advances a job's status. Returns true on success. Clears any prior error
+  /// first so a stale error can't block later calls (this caused a desync where
+  /// the screen never advanced and re-sent 'collecting' → "collecting to
+  /// collecting"). On a server state-conflict, syncs the local copy to the
+  /// server's real status so the UI can recover.
+  Future<bool> updateStatus(String bookingId, String action, {double? actualWeightKg, double? agreedAmount}) async {
+    _error = null;
     try {
       final body = <String, dynamic>{};
       if (action == 'complete' && actualWeightKg != null) {
@@ -297,7 +313,7 @@ class CollectorProvider extends ChangeNotifier {
         body['agreedAmount'] = agreedAmount;
       }
       await ApiClient.put('/api/bookings/$bookingId/$action', body.isEmpty ? null : body);
-      final statusMap = {
+      const statusMap = {
         'on-the-way': 'ON_THE_WAY',
         'collecting': 'COLLECTING',
         'collected':  'COLLECTED',
@@ -316,14 +332,24 @@ class CollectorProvider extends ChangeNotifier {
         } else {
           _activePickups[idx] = {..._activePickups[idx], 'status': newStatus};
         }
-        notifyListeners();
       }
+      notifyListeners();
+      return true;
     } on DioException catch (e) {
       _error = e.response?.data?['error'] ?? 'Failed to update job status';
+      // If the server tells us the real current status, sync our copy so the
+      // next action is derived from the correct state.
+      final serverStatus = e.response?.data?['currentStatus'] as String?;
+      if (serverStatus != null) {
+        final idx = _activePickups.indexWhere((p) => p['id'] == bookingId);
+        if (idx >= 0) _activePickups[idx] = {..._activePickups[idx], 'status': serverStatus};
+      }
       notifyListeners();
+      return false;
     } catch (e) {
       _error = 'Network error — status not saved';
       notifyListeners();
+      return false;
     }
   }
 
