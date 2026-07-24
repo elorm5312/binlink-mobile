@@ -11,6 +11,7 @@ import '../../../shared/components/binlink_map.dart';
 import '../../../shared/components/searching_radar_widget.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/collector_provider.dart';
+import '../screens/active_pickup_screen.dart';
 import '../screens/navigation_screen.dart';
 import '../screens/verification_screen.dart';
 
@@ -217,7 +218,16 @@ class _IncomingRequestState extends State<_IncomingRequest> with SingleTickerPro
             CButton(label: 'TAP TO ACCEPT', icon: 'jobs', onPressed: () async {
               _handled = true;
               _timer.cancel();
-              await provider.acceptRequest(widget.request['id'] as String);
+              final navigator = Navigator.of(context);
+              final messenger = ScaffoldMessenger.of(context);
+              final booking = await provider.acceptRequest(widget.request['id'] as String);
+              if (booking == null) {
+                messenger.showSnackBar(SnackBar(content: Text(provider.error ?? 'Could not accept — it may have been taken.')));
+                return;
+              }
+              // Go straight to the active pickup: view the customer's photo,
+              // then start Google Maps navigation to their location.
+              navigator.push(MaterialPageRoute(builder: (_) => ActivePickupScreen(booking: booking)));
             }),
             const SizedBox(height: 12),
             CButton(label: 'DECLINE', danger: true, secondary: true, onPressed: () async {

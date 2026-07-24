@@ -119,13 +119,16 @@ class _TrackingScreenState extends State<TrackingScreen> {
           }
         : null;
 
-    // Live ETA — prefer real road-distance routing; fall back to straight-line.
+    // Live ETA + distance — prefer real road-distance routing; fall back to
+    // straight-line. Distance drives the "X km away" readout on the card.
     int? etaMinutes;
+    double? distanceKm;
     final etaActive = const ['ASSIGNED', 'ACCEPTED', 'ON_THE_WAY', 'EN_ROUTE'].contains(_status);
     if (collectorLat != null && collectorLng != null && pickupPos != null && etaActive) {
       final from = ll.LatLng(collectorLat, collectorLng);
       _maybeRefreshRoadEta(from, pickupPos);
       final meters = const ll.Distance().as(ll.LengthUnit.Meter, from, pickupPos);
+      distanceKm = meters / 1000;
       etaMinutes = _roadEtaMin ?? (meters / 1000 / 22 * 60).round().clamp(1, 120);
     } else {
       _roadEtaMin = null;
@@ -194,6 +197,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
               status: _status,
               collector: collector,
               etaMinutes: etaMinutes,
+              distanceKm: distanceKm,
               onCall: () => _launchCall(collector?['phone'] as String?),
               onMessage: () => _openChat(collector),
               onFavorite: collector != null ? () => _toggleFavorite(prov, collector) : null,
@@ -482,11 +486,13 @@ class _BottomCard extends StatelessWidget {
     required this.isFavorite,
     required this.onTip,
     required this.onCancel,
+    this.distanceKm,
   });
   final Map<String, dynamic> booking;
   final String status;
   final Map<String, dynamic>? collector;
   final int? etaMinutes;
+  final double? distanceKm;
   final VoidCallback onCall;
   final VoidCallback onMessage;
   final VoidCallback? onFavorite;
@@ -531,6 +537,7 @@ class _BottomCard extends StatelessWidget {
                 onMessage: onMessage,
                 onFavorite: onFavorite,
                 isFavorite: isFavorite,
+                distanceKm: distanceKm,
               ),
               const SizedBox(height: 14),
               Divider(height: 1, color: HouseholdColors.border),
@@ -633,33 +640,48 @@ class _CollectorRow extends StatelessWidget {
     required this.onMessage,
     required this.onFavorite,
     required this.isFavorite,
+    this.distanceKm,
   });
   final Map<String, dynamic> collector;
   final VoidCallback onCall;
   final VoidCallback onMessage;
   final VoidCallback? onFavorite;
   final bool isFavorite;
+  final double? distanceKm;
+
+  String? get _distanceLabel {
+    final d = distanceKm;
+    if (d == null) return null;
+    if (d < 1) return '${(d * 1000).round()} m away';
+    return '${d.toStringAsFixed(1)} km away';
+  }
 
   @override
   Widget build(BuildContext context) {
     final name    = collector['fullName'] as String? ?? 'Your collector';
     final vehicle = collector['vehicleType'] as String?;
     final rating  = (collector['rating'] as num?)?.toDouble();
+    final photo   = collector['profilePhoto'] as String?;
     final hasPhone = (collector['phone'] as String?)?.isNotEmpty == true;
+    final away = _distanceLabel;
 
     return Row(children: [
-      _Avatar(name: name),
+      _Avatar(name: name, photoUrl: photo),
       const SizedBox(width: 14),
       Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(name, style: HouseholdType.section),
-          if (vehicle != null) Text(vehicle, style: HouseholdType.caption),
-          if (rating != null)
-            Row(children: [
+          Row(children: [
+            if (rating != null) ...[
               Icon(PhosphorIcons.star(PhosphorIconsStyle.fill), color: HouseholdColors.warning, size: 13),
               const SizedBox(width: 4),
               Text(rating.toStringAsFixed(1), style: HouseholdType.caption.copyWith(fontWeight: FontWeight.w700)),
-            ]),
+            ],
+            if (rating != null && vehicle != null) Text('  ·  ', style: HouseholdType.caption),
+            if (vehicle != null) Flexible(child: Text(vehicle, style: HouseholdType.caption, overflow: TextOverflow.ellipsis)),
+          ]),
+          if (away != null)
+            Text(away, style: HouseholdType.caption.copyWith(color: HouseholdColors.primary, fontWeight: FontWeight.w700)),
         ]),
       ),
       if (onFavorite != null) ...[
@@ -849,8 +871,9 @@ class _SearchAnimState extends State<_SearchAnim> with SingleTickerProviderState
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar({required this.name});
+  const _Avatar({required this.name, this.photoUrl});
   final String name;
+  final String? photoUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -858,7 +881,7 @@ class _Avatar extends StatelessWidget {
     final initials = parts.length >= 2
         ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
         : name.isNotEmpty ? name[0].toUpperCase() : '?';
-    return Container(
+    final fallback = Container(
       width: 50,
       height: 50,
       decoration: BoxDecoration(
@@ -867,6 +890,11 @@ class _Avatar extends StatelessWidget {
         border: Border.all(color: HouseholdColors.primary.withAlpha(60)),
       ),
       child: Center(child: Text(initials, style: HouseholdType.section.copyWith(color: HouseholdColors.primary))),
+    );
+    if (photoUrl == null || photoUrl!.isEmpty) return fallback;
+    return ClipOval(
+      child: Image.network(photoUrl!, width: 50, height: 50, fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => fallback),
     );
   }
 }

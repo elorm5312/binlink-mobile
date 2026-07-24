@@ -256,18 +256,21 @@ class CollectorProvider extends ChangeNotifier {
     _locationSub = null;
   }
 
-  Future<bool> acceptRequest(String bookingId) async {
+  /// Accepts a job and returns the full accepted booking (with pickup coords +
+  /// household photos), or null on failure, so the caller can jump straight
+  /// into the active-pickup screen.
+  Future<Map<String, dynamic>?> acceptRequest(String bookingId) async {
     try {
       final res = await ApiClient.put('/api/bookings/$bookingId/accept');
       final booking = Map<String, dynamic>.from(res.data['data'] as Map);
       _pendingRequests.removeWhere((r) => r['id'] == bookingId);
       _activePickups.add(booking);
       notifyListeners();
-      return true;
+      return booking;
     } on DioException catch (e) {
       _error = e.response?.data?['error'] ?? 'Failed to accept booking';
       notifyListeners();
-      return false;
+      return null;
     }
   }
 

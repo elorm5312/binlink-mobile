@@ -6,6 +6,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/design_system/collector_design_system.dart';
+import '../../../core/services/maps_launcher.dart';
 import '../../../shared/components/binlink_map.dart';
 import '../../../shared/screens/chat_screen.dart';
 import '../providers/collector_provider.dart';
@@ -30,8 +31,48 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
 
   bool get _isNegotiated => widget.booking['pricingMode'] == 'NEGOTIATED';
 
-  List<String> get _bulkyPhotos =>
-      ((widget.booking['bulkyPhotos'] as List?) ?? const []).whereType<String>().toList();
+  /// All photos the household attached to the request (bulky-item photos and/or
+  /// a general waste photo), so the collector can see the load before arriving.
+  List<String> get _customerPhotos {
+    final list = ((widget.booking['bulkyPhotos'] as List?) ?? const [])
+        .whereType<String>()
+        .toList();
+    final waste = widget.booking['wastePhotoUrl'] as String?;
+    if (waste != null && waste.isNotEmpty && !list.contains(waste)) list.add(waste);
+    return list;
+  }
+
+  bool get _enRoute => const ['ACCEPTED', 'ASSIGNED', 'ON_THE_WAY', 'EN_ROUTE'].contains(_status);
+
+  void _viewPhoto(String url) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(12),
+        child: InteractiveViewer(
+          child: Image.network(url,
+              errorBuilder: (_, __, ___) => Container(
+                  height: 200, color: CollectorColors.charcoal,
+                  child: Icon(PhosphorIcons.imageBroken(), color: CollectorColors.white))),
+        ),
+      ),
+    );
+  }
+
+  /// Opens external Google Maps turn-by-turn navigation to the pickup.
+  Future<void> _launchNavigation() async {
+    final lat = (widget.booking['pickupLat'] as num?)?.toDouble();
+    final lng = (widget.booking['pickupLng'] as num?)?.toDouble();
+    if (lat == null || lng == null) return;
+    final ok = await MapsLauncher.navigateTo(lat, lng,
+        label: widget.booking['pickupAddress'] as String?);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open Google Maps. Is it installed?')),
+      );
+    }
+  }
 
   /// Asks the collector for the price agreed with the household. Returns null
   /// if cancelled.
@@ -203,27 +244,27 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
                   ]),
                 ),
               ],
-              if (_bulkyPhotos.isNotEmpty) ...[
-                const SizedBox(height: 10),
+              if (_customerPhotos.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text("Customer's photo${_customerPhotos.length > 1 ? 's' : ''} — tap to view",
+                      style: CollectorType.caption.copyWith(fontWeight: FontWeight.w700)),
+                ),
+                const SizedBox(height: 8),
                 SizedBox(
-                  height: 64,
+                  height: 96,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    itemCount: _bulkyPhotos.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemCount: _customerPhotos.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 10),
                     itemBuilder: (_, i) => GestureDetector(
-                      onTap: () => showDialog(
-                        context: context,
-                        builder: (_) => Dialog(
-                          backgroundColor: Colors.transparent,
-                          child: InteractiveViewer(child: Image.network(_bulkyPhotos[i])),
-                        ),
-                      ),
+                      onTap: () => _viewPhoto(_customerPhotos[i]),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.network(_bulkyPhotos[i], width: 64, height: 64, fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(width: 64, height: 64, color: CollectorColors.charcoal,
-                                child: Icon(PhosphorIcons.imageBroken(), color: CollectorColors.white, size: 20))),
+                        borderRadius: BorderRadius.circular(14),
+                        child: Image.network(_customerPhotos[i], width: 120, height: 96, fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(width: 120, height: 96, color: CollectorColors.charcoal,
+                                child: Icon(PhosphorIcons.imageBroken(), color: CollectorColors.white, size: 22))),
                       ),
                     ),
                   ),
@@ -260,10 +301,18 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
                 }
                 final nextStatus = _nextStatus(_status);
                 setState(() => _status = nextStatus);
+                // Starting the trip → open Google Maps turn-by-turn.
+                if (action == 'on-the-way' || action == 'en-route') {
+                  await _launchNavigation();
+                }
                 if (nextStatus == 'COMPLETED') {
                   navigator.maybePop();
                 }
               }),
+              if (_enRoute) ...[
+                const SizedBox(height: 10),
+                CButton(label: 'OPEN GOOGLE MAPS', icon: 'navigation', secondary: true, onPressed: _launchNavigation),
+              ],
               if (_status == 'ARRIVED' || _status == 'COLLECTING') ...[
                 const SizedBox(height: 8),
                 TextButton(
