@@ -25,7 +25,9 @@ class AuthProvider extends ChangeNotifier {
   String? get error => _error;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
 
-  final _firebaseAuth = FirebaseAuth.instance;
+  // Lazy so constructing AuthProvider never touches Firebase before
+  // Firebase.initializeApp() has run (would throw "No Firebase App").
+  FirebaseAuth get _firebaseAuth => FirebaseAuth.instance;
   final _googleSignIn = GoogleSignIn();
 
   Future<void> initialize() async {

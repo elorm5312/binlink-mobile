@@ -54,6 +54,26 @@ class CoreInitializer {
       debugPrint('[Core] Supabase init failed: $e');
     }
 
+    // 3. Firebase core — MUST be awaited here (not backgrounded): AuthProvider
+    //    touches FirebaseAuth.instance the moment it's constructed, which throws
+    //    "No Firebase App" if the default app isn't ready yet. initializeApp is
+    //    local platform init (reads google-services.json), so it's fast — the
+    //    slow part was the notification permission dialog, which stays deferred.
+    try {
+      await Firebase.initializeApp();
+      FlutterError.onError = (details) {
+        FlutterError.presentError(details);
+        FirebaseCrashlytics.instance.recordFlutterError(details);
+      };
+      PlatformDispatcher.instance.onError = (error, stack) {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        return true;
+      };
+    } catch (e) {
+      debugPrint('[Core] Firebase init failed: $e');
+      FlutterError.onError = FlutterError.presentError;
+    }
+
     // 3. Orientation + system chrome — cheap, and avoids a first-frame flash.
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -76,25 +96,12 @@ class CoreInitializer {
   }
 
   static Future<void> _initBackgroundServices(AppFlavor flavor) async {
-    // Firebase & Crashlytics
+    // Firebase is already initialized on the critical path. Here we only do the
+    // non-blocking follow-ups: crash reporting opt-in, the notification
+    // permission prompt (pops a dialog), and FCM listeners.
     try {
-      await Firebase.initializeApp();
-
-      // Route Flutter framework errors to Crashlytics
-      // recordFlutterError (non-fatal) — NOT recordFlutterFatalError which kills the app
-      FlutterError.onError = (details) {
-        FlutterError.presentError(details);
-        FirebaseCrashlytics.instance.recordFlutterError(details);
-      };
-      PlatformDispatcher.instance.onError = (error, stack) {
-        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-        return true;
-      };
-
       await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
 
-      // Notifications — this can pop a system permission dialog, which is fine
-      // now that the UI is already visible behind it.
       await FirebaseMessaging.instance.requestPermission(
         alert: true,
         badge: true,
@@ -103,8 +110,7 @@ class CoreInitializer {
       FcmService.listenForRefresh();
       FcmService.listenForeground();
     } catch (e) {
-      debugPrint('[Core] Firebase init failed: $e');
-      FlutterError.onError = FlutterError.presentError;
+      debugPrint('[Core] Firebase messaging setup failed: $e');
     }
 
     // Background location service — collector flavor only
