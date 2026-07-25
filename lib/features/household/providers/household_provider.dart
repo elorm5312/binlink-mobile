@@ -32,6 +32,12 @@ class HouseholdProvider extends ChangeNotifier {
   double? get collectorLat => _collectorLat;
   double? get collectorLng => _collectorLng;
 
+  // Fires when a collector accepts the active booking, carrying the up-to-date
+  // booking (with collector profile). The home screen listens to this to take
+  // the household straight to the live tracking / collector-profile screen.
+  final _bookingAccepted = StreamController<Map<String, dynamic>>.broadcast();
+  Stream<Map<String, dynamic>> get onBookingAccepted => _bookingAccepted.stream;
+
   List<Map<String, dynamic>> get completedBookings =>
       _bookings.where((b) => b['status'] == 'COMPLETED').toList();
 
@@ -460,9 +466,16 @@ class HouseholdProvider extends ChangeNotifier {
         _updateBookingStatus(bookingId, 'ACCEPTED');
         final d = data as Map<String, dynamic>;
         final collector = d['collector'];
-        if (_activeBooking != null && collector != null) {
-          _activeBooking = {..._activeBooking!, 'collector': collector, 'status': 'ACCEPTED'};
+        if (_activeBooking != null) {
+          _activeBooking = {
+            ..._activeBooking!,
+            if (collector != null) 'collector': collector,
+            'status': 'ACCEPTED',
+          };
           notifyListeners();
+          if (!_bookingAccepted.isClosed) {
+            _bookingAccepted.add(Map<String, dynamic>.from(_activeBooking!));
+          }
         }
       } catch (_) {}
     });
@@ -926,6 +939,7 @@ class HouseholdProvider extends ChangeNotifier {
     stopListening();
     unsubscribeFromNearby();
     _zoneEvents.close();
+    _bookingAccepted.close();
     super.dispose();
   }
 

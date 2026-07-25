@@ -14,6 +14,7 @@ import '../components/history_tab.dart';
 import '../components/home_tab.dart';
 import '../components/profile_tab.dart';
 import '../providers/household_provider.dart';
+import 'tracking_screen.dart';
 import 'wallet_screen.dart';
 
 class HouseholdHomeScreen extends StatefulWidget {
@@ -30,6 +31,10 @@ class _HouseholdHomeScreenState extends State<HouseholdHomeScreen> {
   StreamSubscription<Position>? _posSub;
   Timer? _collectorPollTimer;
   HouseholdProvider? _hp;
+  StreamSubscription<Map<String, dynamic>>? _acceptSub;
+  String? _listeningBookingId;
+  String? _autoOpenedBookingId;
+  bool _homeWasCovered = false;
 
   @override
   void initState() {
@@ -41,8 +46,36 @@ class _HouseholdHomeScreenState extends State<HouseholdHomeScreen> {
   void dispose() {
     _posSub?.cancel();
     _collectorPollTimer?.cancel();
+    _acceptSub?.cancel();
     _hp?.unsubscribeFromNearby();
     super.dispose();
+  }
+
+  static const _preAccept = ['PENDING', 'SEARCHING', 'ASSIGNED'];
+
+  /// Keeps the socket booking-room + accept listener alive for the current
+  /// active-but-not-yet-accepted booking, so the household is notified the
+  /// instant a collector accepts — even while sitting on the home tab.
+  void _ensureListeningToActive() {
+    final active = _hp?.activeBooking;
+    final id = active?['id'] as String?;
+    final status = (active?['status'] as String?)?.toUpperCase();
+    if (id != null && _preAccept.contains(status) && _listeningBookingId != id) {
+      _hp!.listenToBooking(id);
+      _listeningBookingId = id;
+    }
+  }
+
+  /// Takes the household straight to the live tracking / collector-profile
+  /// screen when their pickup is accepted (unless they're already on it).
+  void _onBookingAccepted(Map<String, dynamic> booking) {
+    if (!mounted) return;
+    final id = booking['id'] as String?;
+    if (id == null || id == _autoOpenedBookingId) return;
+    // Don't push over a tracking screen the user already opened themselves.
+    if (!(ModalRoute.of(context)?.isCurrent ?? false)) return;
+    _autoOpenedBookingId = id;
+    Navigator.push(context, MaterialPageRoute(builder: (_) => TrackingScreen(booking: booking)));
   }
 
   Future<void> _init() async {
@@ -68,12 +101,14 @@ class _HouseholdHomeScreenState extends State<HouseholdHomeScreen> {
 
     if (!mounted) return;
     _hp = context.read<HouseholdProvider>();
+    _acceptSub = _hp!.onBookingAccepted.listen(_onBookingAccepted);
     await Future.wait([
       _hp!.loadBookings(),
       _hp!.loadOnlineCollectors(lat: _myPos?.latitude, lng: _myPos?.longitude),
       _hp!.loadSubscriptions(),
       _hp!.loadSavedAddresses(),
     ]);
+    _ensureListeningToActive();
     if (_myPos != null && mounted) {
       _hp!.subscribeToNearby(_myPos!.latitude, _myPos!.longitude);
       _subscribedPos = _myPos;
@@ -91,6 +126,19 @@ class _HouseholdHomeScreenState extends State<HouseholdHomeScreen> {
     final auth = context.watch<AuthProvider>();
     if (auth.user?.isAdmin == true) {
       return const AdminDashboardScreen();
+    }
+    // When we return to the home route (e.g. after backing out of a tracking
+    // screen, whose dispose tears down the socket handlers), re-arm the accept
+    // listener so an incoming acceptance still routes the user to tracking.
+    final isCurrent = ModalRoute.of(context)?.isCurrent ?? true;
+    if (isCurrent && _homeWasCovered) {
+      _homeWasCovered = false;
+      _listeningBookingId = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _ensureListeningToActive();
+      });
+    } else if (!isCurrent) {
+      _homeWasCovered = true;
     }
     return Scaffold(
       backgroundColor: HouseholdColors.sand,

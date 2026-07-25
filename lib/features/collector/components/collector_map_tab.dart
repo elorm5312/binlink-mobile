@@ -8,7 +8,6 @@ import 'package:provider/provider.dart';
 import '../../../core/design_system/collector_design_system.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/components/binlink_map.dart';
-import '../../../shared/components/searching_radar_widget.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/collector_provider.dart';
 import '../screens/active_pickup_screen.dart';
@@ -19,14 +18,16 @@ class CollectorMapTab extends StatelessWidget {
   const CollectorMapTab({super.key, required this.pos});
   final ll.LatLng? pos;
 
+  // Fallback map centre (central Accra) so the UI — crucially the GO ONLINE
+  // bar — still renders while GPS is resolving or if permission is denied.
+  static const _fallbackCenter = ll.LatLng(5.6037, -0.1870);
+
   @override
   Widget build(BuildContext context) {
-    final p = pos;
     final provider = context.watch<CollectorProvider>();
     final user = context.watch<AuthProvider>().user;
-    if (p == null) {
-      return Center(child: SearchingRadarWidget(color: CollectorColors.warning));
-    }
+    final p = pos ?? _fallbackCenter;
+    final locating = pos == null;
     final capacity = ((user?.currentLoadKg ?? 0) / (user?.maxCapacityKg ?? 500) * 100).clamp(0, 100).round();
     final etaText = _etaText(provider.currentActivePickup);
     final verified = user?.status == 'ACTIVE';
@@ -97,12 +98,21 @@ class CollectorMapTab extends StatelessWidget {
           child: _OnlineBar(
             verified: verified,
             isOnline: provider.isOnline,
-            onTap: () {
+            locating: locating,
+            onTap: () async {
               if (!verified) {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const VerificationScreen()));
                 return;
               }
-              provider.toggleOnline();
+              final messenger = ScaffoldMessenger.of(context);
+              final wasOnline = provider.isOnline;
+              final ok = await provider.toggleOnline();
+              if (!ok) {
+                messenger.showSnackBar(SnackBar(
+                  backgroundColor: CollectorColors.red,
+                  content: Text(provider.error ?? 'Could not go ${wasOnline ? 'offline' : 'online'}. Try again.'),
+                ));
+              }
             },
           ),
         ),
@@ -363,9 +373,10 @@ class _DumpsiteBanner extends StatelessWidget {
 
 // â”€â”€ Clean online/offline status bar (replaces the old floating GO circle) â”€â”€â”€â”€â”€
 class _OnlineBar extends StatelessWidget {
-  const _OnlineBar({required this.verified, required this.isOnline, required this.onTap});
+  const _OnlineBar({required this.verified, required this.isOnline, required this.onTap, this.locating = false});
   final bool verified;
   final bool isOnline;
+  final bool locating;
   final VoidCallback onTap;
 
   @override
@@ -378,7 +389,9 @@ class _OnlineBar extends StatelessWidget {
         : (isOnline ? "You're online" : "You're offline");
     final String sub = !verified
         ? 'Upload your documents for review'
-        : (isOnline ? 'Receiving nearby pickups' : 'Go online to start earning');
+        : (isOnline
+            ? 'Receiving nearby pickups'
+            : (locating ? 'Finding your location…' : 'Go online to start earning'));
     final String action = !verified ? 'VERIFY' : (isOnline ? 'GO OFFLINE' : 'GO ONLINE');
 
     return Container(

@@ -196,9 +196,25 @@ class CollectorProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<void> toggleOnline() async {
+  /// Toggles the collector's online state. Returns true on success. On failure
+  /// the state is reverted and [error] holds a user-facing message so the UI
+  /// can show it (a silent revert made the button look dead).
+  Future<bool> toggleOnline() async {
     final newState = !_isOnline;
+
+    // Going online requires location permission — without it we can never
+    // broadcast GPS, so jobs would never reach the collector's map.
+    if (newState) {
+      final granted = await LocationService.requestPermission();
+      if (!granted) {
+        _error = 'Location permission is required to go online. Enable it in Settings.';
+        notifyListeners();
+        return false;
+      }
+    }
+
     _isOnline = newState;
+    _error = null;
     notifyListeners();
 
     try {
@@ -214,12 +230,14 @@ class CollectorProvider extends ChangeNotifier {
         _pendingRequests.clear();
         notifyListeners();
       }
+      return true;
     } catch (e) {
       _isOnline = !newState;
       _error = e is DioException
           ? (e.response?.data?['error'] ?? 'Failed to go ${newState ? 'online' : 'offline'}')
           : 'Network error — check connection';
       notifyListeners();
+      return false;
     }
   }
 
