@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,6 +10,7 @@ import '../../../core/storage/secure_storage.dart';
 import '../../../core/network/socket_service.dart';
 import '../../../core/services/fcm_service.dart';
 import '../../../core/services/offline_action_queue_service.dart';
+import '../../../core/config/app_flavor.dart';
 import '../../../shared/models/user_model.dart';
 
 enum AuthStatus { unknown, authenticated, unauthenticated }
@@ -40,6 +42,12 @@ class AuthProvider extends ChangeNotifier {
         await SocketService.connect();
         FcmService.registerToken();
         OfflineActionQueueService.syncNow();
+        // Silently re-sync the account with the backend, declaring this app's
+        // role. Older/legacy accounts that were created as HOUSEHOLD stay stuck
+        // and get "Access denied" on collector-only actions (e.g. GO ONLINE)
+        // until their stored role is reconciled — this heals them on app open
+        // with no user action. Non-blocking: the UI is already up.
+        unawaited(_reconcileRole());
       } else {
         _status = AuthStatus.unauthenticated;
       }
@@ -214,6 +222,25 @@ class AuthProvider extends ChangeNotifier {
   }
 
   // ── Private helpers ──────────────────────────────────────────
+
+  /// Re-exchanges the still-valid Firebase session with the backend, declaring
+  /// this app's role, so a legacy account created with the wrong role is healed
+  /// server-side. Best-effort: any failure (offline, no Firebase session) is
+  /// swallowed so it never blocks or breaks an already-authenticated session.
+  Future<void> _reconcileRole() async {
+    try {
+      final fbUser = _firebaseAuth.currentUser;
+      if (fbUser == null) return;
+      // Already the right role? Nothing to do.
+      if (_user?.role == FlavorConfig.defaultRole) return;
+      final idToken = await fbUser.getIdToken();
+      if (idToken == null) return;
+      await _firebaseExchange(idToken, role: FlavorConfig.defaultRole);
+    } catch (_) {
+      // Ignore — the account still works for shared actions; collector-only
+      // actions will prompt again next launch.
+    }
+  }
 
   Future<bool> _firebaseExchange(
     String idToken, {

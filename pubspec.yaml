@@ -3,7 +3,7 @@ description: "BinLink Eco — Waste Marketplace (Ghana)"
 publish_to: 'none'
 # versionCode is overridden per-build in CI (--build-number=run number) so
 # every release installs as an update. Bump versionName for user-facing releases.
-version: 2.1.0+3
+version: 2.1.1+4
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
