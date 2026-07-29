@@ -243,6 +243,7 @@ class HouseholdProvider extends ChangeNotifier {
     List<String>? bulkyPhotos,
   }) async {
     _setLoading(true);
+    conflictBookingId = null;
     try {
       final res = await ApiClient.post('/api/bookings', {
         'binSize': binSize,
@@ -269,6 +270,11 @@ class HouseholdProvider extends ChangeNotifier {
       notifyListeners();
       return booking;
     } on DioException catch (e) {
+      // 409 = an earlier pickup is still active — remember its id so the UI
+      // can offer "view it" / "cancel it" instead of a dead-end error.
+      if (e.response?.statusCode == 409) {
+        conflictBookingId = e.response?.data?['bookingId'] as String?;
+      }
       _error = e.response?.data?['error'] ?? 'Failed to create booking';
       notifyListeners();
       return null;
@@ -278,6 +284,19 @@ class HouseholdProvider extends ChangeNotifier {
       return null;
     } finally {
       _setLoading(false);
+    }
+  }
+
+  /// Set when createBooking fails with 409 (an active pickup already exists).
+  String? conflictBookingId;
+
+  /// Fetches a single booking by id, or null on failure.
+  Future<Map<String, dynamic>?> fetchBooking(String id) async {
+    try {
+      final res = await ApiClient.get('/api/bookings/$id');
+      return Map<String, dynamic>.from(res.data['data'] as Map);
+    } catch (_) {
+      return null;
     }
   }
 

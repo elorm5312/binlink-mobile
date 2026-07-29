@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import '../config/app_flavor.dart';
 import '../config/env.dart';
 import '../storage/secure_storage.dart';
 import '../navigation/nav_service.dart';
@@ -26,7 +27,13 @@ class ApiClient {
       baseUrl: Env.apiBaseUrl,
       connectTimeout: _connectTimeout,
       receiveTimeout: _receiveTimeout,
-      headers: {'Content-Type': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        // Declares which flavor this app is on every request so the backend
+        // can heal the account's role instantly if it got flipped by the
+        // other app (one account used in both apps → 403 Access denied).
+        'x-app-role': FlavorConfig.defaultRole,
+      },
     ));
 
     dio.interceptors.add(_AuthInterceptor(dio));

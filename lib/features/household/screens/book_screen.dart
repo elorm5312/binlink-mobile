@@ -253,6 +253,14 @@ class _BookScreenState extends State<BookScreen> {
     if (!mounted) return;
     setState(() => _loading = false);
     if (booking == null) {
+      // An earlier pickup is still active — offer to view or cancel it rather
+      // than leaving the user stuck with an error they can't resolve.
+      final conflictId = prov.conflictBookingId;
+      if (conflictId != null) {
+        setState(() => _error = null);
+        await _handleActivePickupConflict(prov, conflictId);
+        return;
+      }
       setState(() => _error = prov.error ?? 'Failed to create booking. Please try again.');
       return;
     }
@@ -267,6 +275,60 @@ class _BookScreenState extends State<BookScreen> {
       Navigator.of(context).pushReplacement(MaterialPageRoute(
         builder: (_) => PaymentScreen(booking: booking),
       ));
+    }
+  }
+
+  /// Shown when booking fails because an earlier pickup is still active.
+  Future<void> _handleActivePickupConflict(HouseholdProvider prov, String conflictId) async {
+    if (!mounted) return;
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: HouseholdColors.card,
+        title: Text('Pickup already in progress',
+            style: HouseholdType.title.copyWith(color: HouseholdColors.charcoal)),
+        content: Text(
+          'You already have an active pickup. You can view it, or cancel it and place this new one.',
+          style: HouseholdType.body.copyWith(color: HouseholdColors.charcoal),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'cancel_old'),
+            child: const Text('Cancel it & rebook'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: HouseholdColors.primary),
+            onPressed: () => Navigator.pop(ctx, 'view'),
+            child: const Text('View pickup'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || choice == null) return;
+
+    if (choice == 'view') {
+      setState(() => _loading = true);
+      final existing = await prov.fetchBooking(conflictId);
+      if (!mounted) return;
+      setState(() => _loading = false);
+      if (existing != null) {
+        prov.listenToBooking(conflictId);
+        Navigator.of(context).pushReplacement(MaterialPageRoute(
+          builder: (_) => TrackingScreen(booking: existing),
+        ));
+      } else {
+        setState(() => _error = 'Could not load your active pickup. Please check your history.');
+      }
+    } else if (choice == 'cancel_old') {
+      setState(() => _loading = true);
+      final ok = await prov.cancelBooking(conflictId, reason: 'Replaced by a new booking');
+      if (!mounted) return;
+      setState(() => _loading = false);
+      if (ok) {
+        await _submit(); // retry the new booking now that the old one is gone
+      } else {
+        setState(() => _error = prov.error ?? 'Could not cancel the active pickup.');
+      }
     }
   }
 

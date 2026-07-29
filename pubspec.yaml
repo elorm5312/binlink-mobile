@@ -3,7 +3,7 @@ description: "BinLink Eco — Waste Marketplace (Ghana)"
 publish_to: 'none'
 # versionCode is overridden per-build in CI (--build-number=run number) so
 # every release installs as an update. Bump versionName for user-facing releases.
-version: 2.1.1+4
+version: 2.1.2+5
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -30,9 +30,6 @@ dependencies:
 
   # Icon font for navigation/action controls
   phosphor_flutter: ^2.1.0
-
-  # Fonts
-  google_fonts: ^6.2.1
 
   # Firebase Core
   firebase_core: ^3.1.1
