@@ -248,8 +248,12 @@ class AuthProvider extends ChangeNotifier {
     String? phone,
     String role = 'HOUSEHOLD',
   }) async {
-    final fcmToken =
-        await FirebaseMessaging.instance.getToken().catchError((_) => null);
+    // Timeboxed: on phones without Google services (many Huaweis) getToken can
+    // hang indefinitely, which stalled login before the exchange ever ran.
+    final fcmToken = await FirebaseMessaging.instance
+        .getToken()
+        .timeout(const Duration(seconds: 5))
+        .catchError((_) => null);
     final body = <String, dynamic>{
       'firebaseToken': idToken,
       'role': role,
@@ -257,7 +261,15 @@ class AuthProvider extends ChangeNotifier {
     };
     if (fullName != null) body['fullName'] = fullName;
     if (phone != null) body['phone'] = phone;
-    final res = await ApiClient.post('/api/auth/firebase', body);
+    // Firebase sign-in just succeeded, so the internet is up — one automatic
+    // retry absorbs transient drops to our backend instead of failing login.
+    Response res;
+    try {
+      res = await ApiClient.post('/api/auth/firebase', body);
+    } on DioException catch (e) {
+      if (e.response != null) rethrow; // real server reply — don't retry
+      res = await ApiClient.post('/api/auth/firebase', body);
+    }
     await _handleAuthResponse(res.data['data']);
     return true;
   }
@@ -319,7 +331,26 @@ class AuthProvider extends ChangeNotifier {
   }
 
   String _extractError(DioException e) {
-    return e.response?.data?['error'] as String? ??
-        'Something went wrong. Please try again.';
+    // A JSON error from the backend is the most specific — use it when present.
+    final data = e.response?.data;
+    if (data is Map && data['error'] is String) return data['error'] as String;
+    // No usable response — say WHAT failed instead of a generic shrug, so
+    // support/debugging can tell timeouts from unreachable servers.
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+        return 'Could not reach the server — connection timed out. Check your internet and try again.';
+      case DioExceptionType.receiveTimeout:
+        return 'The server took too long to respond. Please try again.';
+      case DioExceptionType.connectionError:
+        return 'No connection to the server. Check your internet (mobile data or Wi-Fi) and try again.';
+      case DioExceptionType.badCertificate:
+        return 'Secure connection failed. Check your phone\'s date & time settings.';
+      default:
+        final code = e.response?.statusCode;
+        return code != null
+            ? 'Server error ($code). Please try again shortly.'
+            : 'Something went wrong. Please try again.';
+    }
   }
 }

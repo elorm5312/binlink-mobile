@@ -18,7 +18,9 @@ class ApiClient {
 
   // Per-request timeout overrides — pass via Options(extra: {...})
   // Default timeouts tuned for Ghana 3G: fast connect, generous receive
-  static const _connectTimeout = Duration(seconds: 10);
+  // 20s: TLS to the EU-hosted backend over congested 3G regularly exceeds 10s,
+  // which surfaced as "Something went wrong" on login for real users.
+  static const _connectTimeout = Duration(seconds: 20);
   static const _receiveTimeout =
       Duration(seconds: 30); // longer for list endpoints on slow networks
 
