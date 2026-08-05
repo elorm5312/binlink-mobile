@@ -16,8 +16,8 @@ import '../providers/household_provider.dart';
 import 'payment_screen.dart';
 import 'tracking_screen.dart';
 
-const _kPrices = {'SMALL': 30.0, 'MEDIUM': 40.0, 'LARGE': 50.0};
-const _kBagPrice = 6.0;
+const _kPrices = {'SMALL': 40.0, 'MEDIUM': 50.0, 'LARGE': 60.0};
+const _kBagPrice = 16.0;
 const _kServiceFee = 2.0;
 
 class BookScreen extends StatefulWidget {
@@ -662,9 +662,9 @@ class _Step2 extends StatelessWidget {
   final ValueChanged<int> onRemovePhoto;
 
   static const _bins = [
-    ('SMALL', 'Small', '≤120L', 30),
-    ('MEDIUM', 'Medium', '180L', 40),
-    ('LARGE', 'Large', '240L', 50),
+    ('SMALL', 'Small', '≤120L', 40),
+    ('MEDIUM', 'Medium', '180L', 50),
+    ('LARGE', 'Large', '240L', 60),
   ];
 
   Widget _negotiatedCard() => HCard(
@@ -896,7 +896,7 @@ class _Step2 extends StatelessWidget {
         const SizedBox(height: 24),
         Text('Extra bags', style: HouseholdType.section),
         const SizedBox(height: 4),
-        Text('GHS 6.00 each — for overflow beyond your bin.', style: HouseholdType.caption),
+        Text('GHS 16.00 each — for overflow beyond your bin.', style: HouseholdType.caption),
         const SizedBox(height: 12),
         HCard(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
@@ -904,7 +904,7 @@ class _Step2 extends StatelessWidget {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('Extra bags', style: HouseholdType.section),
-                Text(extraBags == 0 ? 'None added' : '+GHS ${(extraBags * 6).toStringAsFixed(2)}', style: HouseholdType.caption),
+                Text(extraBags == 0 ? 'None added' : '+GHS ${(extraBags * 16).toStringAsFixed(2)}', style: HouseholdType.caption),
               ]),
             ),
             _Counter(value: extraBags, min: 0, max: 10, onChanged: onBags),
@@ -1294,7 +1294,7 @@ class _Step5 extends StatelessWidget {
             const SizedBox(height: 14),
             _ReviewRow(label: 'Category', value: _catLabel(category)),
             if (_fixed) _ReviewRow(label: 'Bin size', value: '${_binLabel(binSize)} — GHS ${base.toStringAsFixed(2)}'),
-            if (_fixed && extraBags > 0) _ReviewRow(label: 'Extra bags', value: '$extraBags × GHS 6.00'),
+            if (_fixed && extraBags > 0) _ReviewRow(label: 'Extra bags', value: '$extraBags × GHS 16.00'),
             if (bulkyPhotoCount > 0) _ReviewRow(label: 'Photos', value: '$bulkyPhotoCount photo${bulkyPhotoCount == 1 ? '' : 's'} attached'),
             _ReviewRow(label: 'Schedule', value: isImmediate ? 'Immediate pickup' : scheduledDate != null ? '${DateFormat('EEE d MMM').format(scheduledDate!)} · ${_timeLabel(timePref)}' : 'Not set'),
             _ReviewRow(label: 'Address', value: address.isEmpty ? 'Not entered' : address, multiLine: true),
