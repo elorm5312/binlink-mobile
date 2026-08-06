@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/design_system/household_design_system.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/receipt_service.dart';
+import '../../../core/storage/secure_storage.dart';
 import '../providers/household_provider.dart';
 import 'tracking_screen.dart';
 
@@ -28,23 +29,44 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
   String? _reference;
   bool _awaitingVerification = false;
   Map<String, dynamic>? _verifiedBooking;
+  final _phoneCtrl = TextEditingController();
+  String? _promptText; // "Approve the prompt on your phone…" while charging MoMo
+  bool _polling = false;
+  bool _cancelPolling = false;
+
+  static const _momoMethods = {'mtn_momo', 'telecel_cash', 'airteltigo_money'};
+  bool get _isMomo => _momoMethods.contains(_method);
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     context.read<HouseholdProvider>().loadWalletSummary();
+    SecureStorage.getUser().then((user) {
+      final userPhone = user?['phone'] as String?;
+      if (userPhone != null && userPhone.isNotEmpty && _phoneCtrl.text.isEmpty) {
+        _phoneCtrl.text = userPhone;
+      }
+    });
   }
 
   @override
   void dispose() {
+    _cancelPolling = true;
+    _phoneCtrl.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _awaitingVerification && _reference != null && widget.booking['id'] is String) {
+    // Only the legacy redirect flow needs resume-based verification. The direct
+    // MoMo charge polls verify itself, so skip re-verifying on resume for it.
+    if (state == AppLifecycleState.resumed &&
+        _awaitingVerification &&
+        !_isMomo &&
+        _reference != null &&
+        widget.booking['id'] is String) {
       _verifyPayment(widget.booking['id'] as String, _reference!);
     }
   }
@@ -87,7 +109,19 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
                 Expanded(child: Text('Payment initialized: $_successRef', style: HouseholdType.body.copyWith(color: HouseholdColors.ecoGreen))),
               ])),
             ],
-            if (_reference != null && !_verifying) ...[
+            if (_promptText != null) ...[
+              const SizedBox(height: 12),
+              HCard(color: HouseholdColors.infoTint, child: Row(children: [
+                if (_polling)
+                  const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))
+                else
+                  HIcon('security', color: HouseholdColors.primary),
+                const SizedBox(width: 12),
+                Expanded(child: Text(_promptText!, style: HouseholdType.body.copyWith(color: HouseholdColors.charcoal))),
+              ])),
+            ],
+            // Manual "Verify payment" fallback (legacy redirect flow only).
+            if (_reference != null && !_isMomo && !_verifying) ...[
               const SizedBox(height: 12),
               HButton(label: 'Verify payment', icon: 'security', onPressed: bookingId == null ? null : () => _verifyPayment(bookingId, _reference!)),
             ],
@@ -102,6 +136,25 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
               ('wallet', 'Wallet'),
             ])
               _PaymentMethod(id: method.$1, label: method.$2, selected: _method == method.$1, onTap: () => setState(() => _method = method.$1)),
+            if (_isMomo) ...[
+              const SizedBox(height: 4),
+              TextField(
+                controller: _phoneCtrl,
+                keyboardType: TextInputType.phone,
+                style: HouseholdType.body.copyWith(color: HouseholdColors.charcoal),
+                decoration: InputDecoration(
+                  labelText: 'Mobile money number',
+                  hintText: '024 123 4567',
+                  prefixIcon: Icon(Icons.phone_iphone, color: HouseholdColors.primary),
+                  filled: true,
+                  fillColor: HouseholdColors.card,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text('You will get a prompt on this number to approve the payment.',
+                  style: HouseholdType.caption),
+            ],
             if (_method == 'wallet') ...[
               const SizedBox(height: 12),
               HCard(
@@ -122,10 +175,18 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
             ],
             const SizedBox(height: 20),
             HButton(
-              label: _method == 'cash' ? 'Confirm cash payment' : 'Initialize secure payment',
+              label: _method == 'cash'
+                  ? 'Confirm cash payment'
+                  : _isMomo
+                      ? 'Pay with mobile money'
+                      : _method == 'wallet'
+                          ? 'Pay from wallet'
+                          : 'Initialize secure payment',
               icon: 'payment',
-              loading: _loading,
-              onPressed: bookingId == null || (_method == 'wallet' && walletBalance < amountValue) ? null : () => _confirmPayment(bookingId),
+              loading: _loading || _polling,
+              onPressed: bookingId == null || _polling || (_method == 'wallet' && walletBalance < amountValue)
+                  ? null
+                  : () => _confirmPayment(bookingId),
             ),
           ],
         ),
@@ -151,6 +212,10 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
         await _verifyPayment(bookingId, 'wallet:$bookingId', method: 'wallet');
         return;
       }
+      if (_isMomo) {
+        await _chargeMomo(bookingId);
+        return;
+      }
       final res = await ApiClient.post('/api/payments/initialize', {'bookingId': bookingId});
       final data = Map<String, dynamic>.from(res.data['data'] as Map);
       final ref = data['reference'] as String?;
@@ -170,6 +235,77 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
       setState(() => _error = 'Payment could not be initialized. Please check your connection and try again.');
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// Direct Ghana mobile-money charge: sends an approval prompt to the user's
+  /// phone, then polls the backend until the charge is confirmed.
+  Future<void> _chargeMomo(String bookingId) async {
+    final phone = _phoneCtrl.text.trim();
+    if (phone.length < 9) {
+      setState(() => _error = 'Enter a valid mobile money number.');
+      return;
+    }
+    try {
+      final res = await ApiClient.post('/api/payments/charge', {
+        'bookingId': bookingId,
+        'phone': phone,
+        'method': _method,
+      });
+      final data = Map<String, dynamic>.from(res.data['data'] as Map? ?? {});
+      final ref = data['reference'] as String?;
+      final status = data['status'] as String?;
+      setState(() {
+        _reference = ref;
+        _promptText = (data['displayText'] as String?) ??
+            'Approve the payment prompt on your phone to complete the charge.';
+      });
+      if (status == 'success') {
+        // Already approved (e.g. sandbox) — finalize immediately.
+        await _verifyPayment(bookingId, ref ?? '', method: 'momo');
+        return;
+      }
+      if (ref != null) {
+        await _pollVerification(bookingId, ref);
+      }
+    } catch (e) {
+      setState(() {
+        _error = ApiClient.messageFrom(e) ?? 'Could not start the mobile money charge. Please try again.';
+        _promptText = null;
+      });
+    }
+  }
+
+  /// Polls /api/payments/verify until the booking is PAID or the window closes.
+  /// The verify endpoint returns 4xx while the charge is still pending, so we
+  /// swallow those and keep polling.
+  Future<void> _pollVerification(String bookingId, String reference) async {
+    if (_polling) return;
+    setState(() {
+      _polling = true;
+      _cancelPolling = false;
+    });
+    const attempts = 24; // ~2 min at 5s spacing
+    for (var i = 0; i < attempts; i++) {
+      if (_cancelPolling || !mounted) return;
+      await Future.delayed(const Duration(seconds: 5));
+      if (_cancelPolling || !mounted) return;
+      try {
+        await ApiClient.post('/api/payments/verify', {'bookingId': bookingId, 'reference': reference});
+        // 200 → payment confirmed.
+        if (mounted) setState(() => _polling = false);
+        await _verifyPayment(bookingId, reference, method: 'momo');
+        return;
+      } catch (_) {
+        // Still pending — keep waiting.
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _polling = false;
+        _promptText = null;
+        _error = 'We didn\'t get a confirmation in time. If you approved the prompt, tap Pay again to retry.';
+      });
     }
   }
 

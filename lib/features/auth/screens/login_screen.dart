@@ -27,13 +27,19 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  // Admins land on the control dashboard; everyone else on their flavor home.
+  String _homeRouteFor(AuthProvider auth) {
+    if (auth.user?.isAdmin == true) return '/admin';
+    return FlavorConfig.isCollector ? '/collector' : '/household';
+  }
+
   Future<void> _loginEmail() async {
     if (!_formKey.currentState!.validate()) return;
     final auth = context.read<AuthProvider>();
     final ok = await auth.loginWithEmail(email: _email.text.trim(), password: _password.text, role: FlavorConfig.defaultRole);
     if (!mounted) return;
     if (ok) {
-      Navigator.pushReplacementNamed(context, FlavorConfig.isCollector ? '/collector' : '/household');
+      Navigator.pushReplacementNamed(context, _homeRouteFor(auth));
     } else {
       _snack(auth.error ?? 'Sign in failed');
     }
@@ -44,7 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final ok = await auth.loginWithGoogle(role: FlavorConfig.defaultRole);
     if (!mounted) return;
     if (ok) {
-      Navigator.pushReplacementNamed(context, FlavorConfig.isCollector ? '/collector' : '/household');
+      Navigator.pushReplacementNamed(context, _homeRouteFor(auth));
     } else if (auth.error != null) {
       _snack(auth.error!);
     }

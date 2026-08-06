@@ -30,7 +30,10 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
     final auth = context.read<AuthProvider>();
     if (auth.status == AuthStatus.authenticated) {
-      Navigator.pushReplacementNamed(context, FlavorConfig.isCollector ? '/collector' : '/household');
+      final route = auth.user?.isAdmin == true
+          ? '/admin'
+          : (FlavorConfig.isCollector ? '/collector' : '/household');
+      Navigator.pushReplacementNamed(context, route);
       return;
     }
     final prefs = await SharedPreferences.getInstance();

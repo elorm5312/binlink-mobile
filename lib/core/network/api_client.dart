@@ -85,6 +85,19 @@ class ApiClient {
       instance.patch(path, data: data);
 
   static Future<Response> delete(String path) => instance.delete(path);
+
+  /// Best-effort human-readable message from a caught request error.
+  /// Prefers the backend's `error`/`message` field, falls back to null.
+  static String? messageFrom(Object error) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map) {
+        final msg = data['error'] ?? data['message'];
+        if (msg is String && msg.isNotEmpty) return msg;
+      }
+    }
+    return null;
+  }
 }
 
 class _AuthInterceptor extends Interceptor {

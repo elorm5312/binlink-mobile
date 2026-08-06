@@ -23,6 +23,7 @@ import 'features/collector/screens/pickups_screen.dart';
 import 'features/collector/screens/earnings_screen.dart';
 import 'features/collector/screens/collector_notifications_screen.dart';
 import 'features/collector/screens/active_pickup_screen.dart';
+import 'features/admin/screens/admin_dashboard_screen.dart';
 
 class BinLinkApp extends StatelessWidget {
   const BinLinkApp({super.key});
@@ -71,6 +72,7 @@ class BinLinkApp extends StatelessWidget {
               '/otp':              (_) => const OtpScreen(),
               '/household':       (_) => const HouseholdHomeScreen(),
               '/collector':       (_) => const CollectorMapScreen(),
+              '/admin':           (_) => const AdminDashboardScreen(),
               '/notifications':   (_) => const NotificationsScreen(),
               '/help':            (_) => const HelpScreen(),
               '/privacy':         (_) => const PrivacyScreen(),
