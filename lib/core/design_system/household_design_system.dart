@@ -299,7 +299,7 @@ class HCard extends StatelessWidget {
   }
 }
 
-class HTextField extends StatelessWidget {
+class HTextField extends StatefulWidget {
   const HTextField({super.key, required this.controller, required this.label, this.hint, this.validator, this.obscure = false, this.keyboardType, this.inputFormatters});
   final TextEditingController controller;
   final String label;
@@ -310,17 +310,30 @@ class HTextField extends StatelessWidget {
   final List<TextInputFormatter>? inputFormatters;
 
   @override
+  State<HTextField> createState() => _HTextFieldState();
+}
+
+class _HTextFieldState extends State<HTextField> {
+  late bool _hidden;
+
+  @override
+  void initState() {
+    super.initState();
+    _hidden = widget.obscure;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return TextFormField(
-      controller: controller,
-      validator: validator,
-      obscureText: obscure,
-      keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
+      controller: widget.controller,
+      validator: widget.validator,
+      obscureText: _hidden,
+      keyboardType: widget.keyboardType,
+      inputFormatters: widget.inputFormatters,
       style: HouseholdType.body,
       decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
+        labelText: widget.label,
+        hintText: widget.hint,
         filled: true,
         fillColor: HouseholdColors.card,
         labelStyle: HouseholdType.caption,
@@ -328,6 +341,12 @@ class HTextField extends StatelessWidget {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide(color: HouseholdColors.border)),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide(color: HouseholdColors.border)),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide(color: HouseholdColors.primary, width: 1.4)),
+        suffixIcon: widget.obscure
+            ? IconButton(
+                icon: Icon(_hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: HouseholdColors.gray, size: 20),
+                onPressed: () => setState(() => _hidden = !_hidden),
+              )
+            : null,
       ),
     );
   }

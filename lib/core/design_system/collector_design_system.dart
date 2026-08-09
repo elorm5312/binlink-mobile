@@ -274,7 +274,7 @@ class CPanel extends StatelessWidget {
   }
 }
 
-class CTextField extends StatelessWidget {
+class CTextField extends StatefulWidget {
   const CTextField({super.key, required this.controller, required this.label, this.hint, this.validator, this.obscure = false, this.keyboardType, this.inputFormatters});
   final TextEditingController controller;
   final String label;
@@ -285,17 +285,30 @@ class CTextField extends StatelessWidget {
   final List<TextInputFormatter>? inputFormatters;
 
   @override
+  State<CTextField> createState() => _CTextFieldState();
+}
+
+class _CTextFieldState extends State<CTextField> {
+  late bool _hidden;
+
+  @override
+  void initState() {
+    super.initState();
+    _hidden = widget.obscure;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return TextFormField(
-      controller: controller,
-      validator: validator,
-      obscureText: obscure,
-      keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
+      controller: widget.controller,
+      validator: widget.validator,
+      obscureText: _hidden,
+      keyboardType: widget.keyboardType,
+      inputFormatters: widget.inputFormatters,
       style: CollectorType.body,
       decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
+        labelText: widget.label,
+        hintText: widget.hint,
         filled: true,
         fillColor: CollectorColors.charcoal,
         labelStyle: CollectorType.caption,
@@ -304,6 +317,12 @@ class CTextField extends StatelessWidget {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: CollectorColors.line)),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: CollectorColors.line)),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: CollectorColors.green, width: 1.4)),
+        suffixIcon: widget.obscure
+            ? IconButton(
+                icon: Icon(_hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: const Color(0xFFC8D0DA), size: 20),
+                onPressed: () => setState(() => _hidden = !_hidden),
+              )
+            : null,
       ),
     );
   }

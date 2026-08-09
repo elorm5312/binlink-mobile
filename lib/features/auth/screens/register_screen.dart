@@ -21,6 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _email = TextEditingController();
   final _phone = TextEditingController();
   final _password = TextEditingController();
+  final _confirm = TextEditingController();
 
   @override
   void dispose() {
@@ -28,6 +29,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _email.dispose();
     _phone.dispose();
     _password.dispose();
+    _confirm.dispose();
     super.dispose();
   }
 
@@ -45,8 +47,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (ok) {
       Navigator.pushReplacementNamed(context, FlavorConfig.isCollector ? '/collector' : '/household');
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(auth.error ?? 'Registration failed'), behavior: SnackBarBehavior.floating));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(auth.error ?? 'Registration failed'), behavior: SnackBarBehavior.floating),
+      );
     }
+  }
+
+  String? _confirmValidator(String? v) {
+    if (v == null || v.isEmpty) return 'Please confirm your password';
+    if (v != _password.text) return 'Passwords do not match';
+    return null;
   }
 
   @override
@@ -77,6 +87,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 HTextField(controller: _phone, label: 'Phone', hint: '024XXXXXXX', keyboardType: TextInputType.phone, validator: Validators.phone),
                 const SizedBox(height: 12),
                 HTextField(controller: _password, label: 'Password', obscure: true, validator: Validators.password),
+                const SizedBox(height: 12),
+                HTextField(controller: _confirm, label: 'Confirm password', obscure: true, validator: _confirmValidator),
                 const SizedBox(height: 22),
                 HButton(label: 'Create account', icon: 'profile', loading: auth.loading, onPressed: _register),
                 const SizedBox(height: 18),
@@ -109,6 +121,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 CTextField(controller: _phone, label: 'Phone', hint: '024XXXXXXX', keyboardType: TextInputType.phone, validator: Validators.phone),
                 const SizedBox(height: 12),
                 CTextField(controller: _password, label: 'Password', obscure: true, validator: Validators.password),
+                const SizedBox(height: 12),
+                CTextField(controller: _confirm, label: 'Confirm password', obscure: true, validator: _confirmValidator),
                 const SizedBox(height: 22),
                 CButton(label: 'CREATE COLLECTOR ACCOUNT', icon: 'profile', loading: auth.loading, onPressed: _register),
                 const SizedBox(height: 18),

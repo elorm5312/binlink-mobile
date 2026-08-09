@@ -98,8 +98,10 @@ class AuthProvider extends ChangeNotifier {
       );
       await cred.user!.updateDisplayName(fullName);
       final idToken = await cred.user!.getIdToken();
+      // Pass the password so the backend stores a passwordHash — this lets the
+      // same email+password work on the admin portal without a separate account.
       return await _firebaseExchange(idToken!,
-          fullName: fullName, phone: phone, role: role);
+          fullName: fullName, phone: phone, role: role, password: password);
     } on FirebaseAuthException catch (e) {
       _error = _firebaseError(e);
       return false;
@@ -247,6 +249,7 @@ class AuthProvider extends ChangeNotifier {
     String? fullName,
     String? phone,
     String role = 'HOUSEHOLD',
+    String? password,
   }) async {
     // Timeboxed: on phones without Google services (many Huaweis) getToken can
     // hang indefinitely, which stalled login before the exchange ever ran.
@@ -261,6 +264,7 @@ class AuthProvider extends ChangeNotifier {
     };
     if (fullName != null) body['fullName'] = fullName;
     if (phone != null) body['phone'] = phone;
+    if (password != null) body['password'] = password;
     // Firebase sign-in just succeeded, so the internet is up — one automatic
     // retry absorbs transient drops to our backend instead of failing login.
     Response res;
