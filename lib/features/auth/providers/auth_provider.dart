@@ -78,6 +78,9 @@ class AuthProvider extends ChangeNotifier {
     } on DioException catch (e) {
       _error = _extractError(e);
       return false;
+    } catch (_) {
+      _error = 'An unexpected error occurred during sign-in.';
+      return false;
     } finally {
       _setLoading(false);
     }
@@ -108,6 +111,9 @@ class AuthProvider extends ChangeNotifier {
     } on DioException catch (e) {
       _error = _extractError(e);
       return false;
+    } catch (_) {
+      _error = 'An unexpected error occurred during registration.';
+      return false;
     } finally {
       _setLoading(false);
     }
@@ -117,6 +123,7 @@ class AuthProvider extends ChangeNotifier {
 
   Future<bool> loginWithGoogle({String role = 'HOUSEHOLD'}) async {
     _setLoading(true);
+    _error = null;
     try {
       // Sign out first to force account picker every time
       await _googleSignIn.signOut();
@@ -160,7 +167,6 @@ class AuthProvider extends ChangeNotifier {
       return false;
     } finally {
       _setLoading(false);
-      notifyListeners();
     }
   }
 
@@ -279,11 +285,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> _handleAuthResponse(Map<String, dynamic>? data) async {
-    if (data == null) {
-      _error = 'Invalid authentication response';
-      notifyListeners();
-      return;
-    }
+    if (data == null) throw Exception('Invalid authentication response');
     await SecureStorage.saveTokens(
       accessToken: data['accessToken'],
       refreshToken: data['refreshToken'],
