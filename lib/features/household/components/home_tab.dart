@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../core/design_system/household_design_system.dart';
 import '../../../shared/components/binlink_map.dart';
 import '../../../shared/components/searching_radar_widget.dart';
+import '../../../shared/screens/messages_screen.dart';
 import '../providers/household_provider.dart';
 import '../screens/book_screen.dart';
 import '../screens/tracking_screen.dart';
@@ -62,7 +63,10 @@ class _HomeTabState extends State<HomeTab> {
               HIcon('location', color: HouseholdColors.primary),
               const SizedBox(width: 12),
               Expanded(child: Text(locating ? 'Locating you…' : 'Where should we collect?', style: HouseholdType.section)),
-              HIcon('search', color: HouseholdColors.charcoal),
+              GestureDetector(
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MessagesScreen())),
+                child: Icon(PhosphorIcons.chatCircleDots(), color: HouseholdColors.charcoal),
+              ),
             ]),
           ),
         ),

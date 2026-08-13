@@ -3,9 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:provider/provider.dart';
 
+import 'package:phosphor_flutter/phosphor_flutter.dart';
+
 import '../../../core/design_system/collector_design_system.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/components/binlink_map.dart';
+import '../../../shared/screens/messages_screen.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/collector_provider.dart';
 import '../screens/active_pickup_screen.dart';
@@ -54,6 +57,11 @@ class CollectorMapTab extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(color: CollectorColors.dark, borderRadius: BorderRadius.circular(20)),
                 child: Text('$capacity%', style: CollectorType.caption.copyWith(color: CollectorColors.green, fontWeight: FontWeight.w900)),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MessagesScreen())),
+                child: Icon(PhosphorIcons.chatCircleDots(), color: CollectorColors.white),
               ),
             ]),
           ),

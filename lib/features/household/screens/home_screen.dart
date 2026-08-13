@@ -30,6 +30,7 @@ class _HouseholdHomeScreenState extends State<HouseholdHomeScreen> {
   ll.LatLng? _subscribedPos;
   StreamSubscription<Position>? _posSub;
   Timer? _collectorPollTimer;
+  Timer? _acceptPollTimer;
   HouseholdProvider? _hp;
   StreamSubscription<Map<String, dynamic>>? _acceptSub;
   String? _listeningBookingId;
@@ -46,6 +47,7 @@ class _HouseholdHomeScreenState extends State<HouseholdHomeScreen> {
   void dispose() {
     _posSub?.cancel();
     _collectorPollTimer?.cancel();
+    _acceptPollTimer?.cancel();
     _acceptSub?.cancel();
     _hp?.unsubscribeFromNearby();
     super.dispose();
@@ -118,6 +120,12 @@ class _HouseholdHomeScreenState extends State<HouseholdHomeScreen> {
       final pos = _myPos;
       _hp?.loadOnlineCollectors(lat: pos?.latitude, lng: pos?.longitude);
       if (pos != null) _hp?.loadSurge(pos.latitude, pos.longitude);
+    });
+    // Fast fallback so "collector accepted / on the way" shows within seconds
+    // even if the socket is slow. Self-guards: only hits the network while a
+    // booking is still awaiting a collector.
+    _acceptPollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _hp?.pollActiveBookingStatus();
     });
   }
 

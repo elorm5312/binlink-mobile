@@ -243,12 +243,21 @@ class CollectorProvider extends ChangeNotifier {
 
   void _startLocationBroadcast() {
     _locationSub?.cancel();
+    DateTime lastUiNotify = DateTime.fromMillisecondsSinceEpoch(0);
     _locationSub = LocationService.getPositionStream().listen((pos) async {
       _currentLat = pos.latitude;
       _currentLng = pos.longitude;
       _currentHeading = pos.heading;
       _currentSpeedKph = pos.speed * 3.6;
-      notifyListeners();
+      // Perf: GPS can emit several samples/second. Rebuilding the whole map
+      // Stack that often made the app feel sluggish. Coalesce UI notifications
+      // to ~1/s (speed/ETA don't need finer granularity); socket broadcasts
+      // below stay at full rate so live tracking is unaffected.
+      final now = DateTime.now();
+      if (now.difference(lastUiNotify).inMilliseconds >= 900) {
+        lastUiNotify = now;
+        notifyListeners();
+      }
 
       // Broadcast general location for zones (always)
       SocketService.broadcastLocation(

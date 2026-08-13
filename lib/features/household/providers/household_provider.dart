@@ -477,6 +477,36 @@ class HouseholdProvider extends ChangeNotifier {
     }
   }
 
+  /// Fallback poll so the household sees ACCEPTED / status changes within a few
+  /// seconds even when the socket is slow or dropped (the top complaint was a
+  /// long delay before "collector accepted / on the way" showed). Cheap: it
+  /// only hits the network while the active booking is still awaiting a
+  /// collector, and fires [onBookingAccepted] the moment it flips out of the
+  /// pre-accept states so the UI routes to live tracking.
+  Future<void> pollActiveBookingStatus() async {
+    const preAccept = ['PENDING', 'SEARCHING', 'ASSIGNED'];
+    final current = _activeBooking;
+    final id = current?['id'] as String?;
+    final prevStatus = (current?['status'] as String?)?.toUpperCase();
+    if (id == null || prevStatus == null || !preAccept.contains(prevStatus)) return;
+    try {
+      final res = await ApiClient.get('/api/bookings');
+      final list = List<Map<String, dynamic>>.from(res.data['data'] as List? ?? []);
+      final fresh = list.firstWhere((b) => b['id'] == id, orElse: () => const {});
+      if (fresh.isEmpty) return;
+      final newStatus = (fresh['status'] as String?)?.toUpperCase();
+      if (newStatus == null || newStatus == prevStatus) return;
+      _bookings = list;
+      _activeBooking = fresh;
+      notifyListeners();
+      if (!preAccept.contains(newStatus) && !_bookingAccepted.isClosed) {
+        _bookingAccepted.add(Map<String, dynamic>.from(fresh));
+      }
+    } catch (_) {
+      // Best-effort; next tick retries.
+    }
+  }
+
   void listenToBooking(String bookingId) {
     SocketService.joinBookingRoom(bookingId);
 
