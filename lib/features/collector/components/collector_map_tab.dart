@@ -1,7 +1,5 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:provider/provider.dart';
 
@@ -92,31 +90,45 @@ class CollectorMapTab extends StatelessWidget {
           right: 22,
           child: _Metric(label: 'Speed', value: '${provider.currentSpeedKph.round()} km/h'),
         ),
-        // Clean status bar pinned to the bottom â€” lifted above the floating nav bar.
+        // Bottom bar: when there's an active pickup, show a persistent "resume
+        // job" bar so the collector can always get back to the arrived/complete
+        // controls (e.g. after Google Maps opened or they backgrounded the app).
+        // Otherwise show the online/offline toggle.
         Positioned(
           left: 16, right: 16, bottom: bottomInset + navClearance,
-          child: _OnlineBar(
-            verified: verified,
-            isOnline: provider.isOnline,
-            locating: locating,
-            onTap: () async {
-              if (!verified) {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const VerificationScreen()));
-                return;
-              }
-              final messenger = ScaffoldMessenger.of(context);
-              final wasOnline = provider.isOnline;
-              final ok = await provider.toggleOnline();
-              if (!ok) {
-                messenger.showSnackBar(SnackBar(
-                  backgroundColor: CollectorColors.red,
-                  content: Text(provider.error ?? 'Could not go ${wasOnline ? 'offline' : 'online'}. Try again.'),
-                ));
-              }
-            },
-          ),
+          child: provider.currentActivePickup != null
+              ? _ActiveJobBar(
+                  booking: provider.currentActivePickup!,
+                  onResume: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ActivePickupScreen(booking: provider.currentActivePickup!),
+                    ),
+                  ),
+                )
+              : _OnlineBar(
+                  verified: verified,
+                  isOnline: provider.isOnline,
+                  locating: locating,
+                  onTap: () async {
+                    if (!verified) {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const VerificationScreen()));
+                      return;
+                    }
+                    final messenger = ScaffoldMessenger.of(context);
+                    final wasOnline = provider.isOnline;
+                    final ok = await provider.toggleOnline();
+                    if (!ok) {
+                      messenger.showSnackBar(SnackBar(
+                        backgroundColor: CollectorColors.red,
+                        content: Text(provider.error ?? 'Could not go ${wasOnline ? 'offline' : 'online'}. Try again.'),
+                      ));
+                    }
+                  },
+                ),
         ),
-        if (provider.isOnline && provider.pendingRequests.isNotEmpty) _IncomingRequest(request: provider.pendingRequests.first),
+        // The incoming-request takeover now lives at the shell level
+        // (CollectorMapScreen) so it covers every tab + the nav bar.
       ],
     );
   }
@@ -141,141 +153,6 @@ class _Metric extends StatelessWidget {
           Text(value, style: CollectorType.section),
         ]),
       );
-}
-
-class _IncomingRequest extends StatefulWidget {
-  const _IncomingRequest({required this.request});
-  final Map<String, dynamic> request;
-
-  @override
-  State<_IncomingRequest> createState() => _IncomingRequestState();
-}
-
-class _IncomingRequestState extends State<_IncomingRequest> with SingleTickerProviderStateMixin {
-  static const _seconds = 30;
-  late final AnimationController _ring = AnimationController(vsync: this, duration: const Duration(seconds: _seconds))..forward();
-  late Timer _timer;
-  int _remaining = _seconds;
-  bool _handled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    SystemSound.play(SystemSoundType.alert);
-    HapticFeedback.mediumImpact();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted || _handled) return;
-      if (_remaining <= 1) {
-        _handled = true;
-        _timer.cancel();
-        context.read<CollectorProvider>().declineRequest(widget.request['id'] as String);
-        return;
-      }
-      setState(() => _remaining -= 1);
-    });
-  }
-
-  @override
-  void didUpdateWidget(covariant _IncomingRequest oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.request['id'] != widget.request['id']) {
-      _remaining = _seconds;
-      _handled = false;
-      _ring.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _timer.cancel();
-    _ring.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = context.read<CollectorProvider>();
-    return Container(
-      color: Colors.black.withAlpha(218),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(22),
-          child: Column(children: [
-            const Spacer(),
-            SizedBox(
-              height: 210,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  AnimatedBuilder(
-                    animation: _ring,
-                    builder: (_, __) => CustomPaint(
-                      size: const Size(210, 210),
-                      painter: _CountdownRingPainter(progress: _ring.value, color: CollectorColors.warning),
-                    ),
-                  ),
-                  SvgPicture.asset('assets/collector_assets/workflow/accept_request.svg', height: 150),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            Text('Incoming request', style: CollectorType.hero, textAlign: TextAlign.center),
-            const SizedBox(height: 8),
-            Text(widget.request['pickupAddress'] as String? ?? 'Pickup location nearby', textAlign: TextAlign.center, style: CollectorType.body.copyWith(color: const Color(0xFFC8D0DA))),
-            const SizedBox(height: 6),
-            Text('Auto reject in $_remaining s', style: CollectorType.caption.copyWith(color: CollectorColors.warning)),
-            const Spacer(),
-            CButton(label: 'TAP TO ACCEPT', icon: 'jobs', onPressed: () async {
-              _handled = true;
-              _timer.cancel();
-              final navigator = Navigator.of(context);
-              final messenger = ScaffoldMessenger.of(context);
-              final booking = await provider.acceptRequest(widget.request['id'] as String);
-              if (booking == null) {
-                messenger.showSnackBar(SnackBar(content: Text(provider.error ?? 'Could not accept — it may have been taken.')));
-                return;
-              }
-              // Go straight to the active pickup: view the customer's photo,
-              // then start Google Maps navigation to their location.
-              navigator.push(MaterialPageRoute(builder: (_) => ActivePickupScreen(booking: booking)));
-            }),
-            const SizedBox(height: 12),
-            CButton(label: 'DECLINE', danger: true, secondary: true, onPressed: () async {
-              _handled = true;
-              _timer.cancel();
-              await provider.declineRequest(widget.request['id'] as String);
-            }),
-          ]),
-        ),
-      ),
-    );
-  }
-}
-
-class _CountdownRingPainter extends CustomPainter {
-  const _CountdownRingPainter({required this.progress, required this.color});
-  final double progress;
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    final radius = size.width / 2 - 10;
-    final bg = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 10
-      ..color = Colors.white.withAlpha(30);
-    final fg = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 10
-      ..strokeCap = StrokeCap.round
-      ..color = color;
-    canvas.drawCircle(center, radius, bg);
-    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), -1.57, 6.28318 * progress, false, fg);
-  }
-
-  @override
-  bool shouldRepaint(covariant _CountdownRingPainter oldDelegate) => oldDelegate.progress != progress || oldDelegate.color != color;
 }
 
 Future<void> _confirmOffload(BuildContext context, CollectorProvider provider) async {
@@ -367,6 +244,73 @@ class _DumpsiteBanner extends StatelessWidget {
           )),
         ]),
       ]),
+    );
+  }
+}
+
+// ── Persistent active-job bar — always lets the collector resume the pickup ──
+class _ActiveJobBar extends StatelessWidget {
+  const _ActiveJobBar({required this.booking, required this.onResume});
+  final Map<String, dynamic> booking;
+  final VoidCallback onResume;
+
+  String _label(String status) {
+    switch (status) {
+      case 'ACCEPTED':
+      case 'ASSIGNED':
+        return 'Head to pickup';
+      case 'ON_THE_WAY':
+      case 'EN_ROUTE':
+        return 'On the way';
+      case 'ARRIVED':
+        return 'Arrived — start collecting';
+      case 'COLLECTING':
+        return 'Collecting — complete when done';
+      case 'COLLECTED':
+        return 'Finish the job';
+      default:
+        return 'Active pickup';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final status = booking['status'] as String? ?? 'ACCEPTED';
+    final address = booking['pickupAddress'] as String? ?? 'Active pickup';
+    return GestureDetector(
+      onTap: onResume,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+        decoration: BoxDecoration(
+          color: CollectorColors.charcoal,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: CollectorColors.green.withAlpha(160), width: 1.5),
+          boxShadow: const [BoxShadow(color: Color(0x55000000), blurRadius: 24, offset: Offset(0, 8))],
+        ),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: CollectorColors.green.withAlpha(40), shape: BoxShape.circle),
+            child: CIcon('jobs', color: CollectorColors.green),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(_label(status), style: CollectorType.title),
+            Text(address, maxLines: 1, overflow: TextOverflow.ellipsis, style: CollectorType.caption),
+          ])),
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            decoration: BoxDecoration(
+              color: CollectorColors.green,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text('RESUME', style: CollectorType.caption.copyWith(
+              color: CollectorColors.dark, fontWeight: FontWeight.w900, letterSpacing: 0.5,
+            )),
+          ),
+        ]),
+      ),
     );
   }
 }

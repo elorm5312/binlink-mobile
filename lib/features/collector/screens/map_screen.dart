@@ -8,6 +8,7 @@ import '../../../core/design_system/collector_design_system.dart';
 import '../../../core/services/location_service.dart';
 import '../components/collector_map_tab.dart';
 import '../components/collector_profile_tab.dart';
+import '../components/incoming_request_overlay.dart';
 import '../providers/collector_provider.dart';
 import 'collector_notifications_screen.dart';
 import 'earnings_screen.dart';
@@ -55,30 +56,40 @@ class _CollectorMapScreenState extends State<CollectorMapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: CollectorColors.dark,
-      extendBody: true,
-      body: IndexedStack(
-        index: _index,
-        children: [
-          CollectorMapTab(pos: _pos),
-          const PickupsScreen(),
-          const EarningsScreen(),
-          const CollectorNotificationsScreen(),
-          const CollectorProfileTab(),
-        ],
-      ),
-      bottomNavigationBar: CBottomNav(
-        index: _index,
-        onChanged: (i) => setState(() => _index = i),
-        items: const [
-          (label: 'Map', icon: 'map'),
-          (label: 'Jobs', icon: 'jobs'),
-          (label: 'Wallet', icon: 'wallet'),
-          (label: 'Alerts', icon: 'notifications'),
-          (label: 'Profile', icon: 'profile'),
-        ],
-      ),
+    final prov = context.watch<CollectorProvider>();
+    // Take over the WHOLE screen (all tabs + nav bar) when a job comes in while
+    // online — the overlay sits above the Scaffold in a root Stack.
+    final showRequest = prov.isOnline && prov.pendingRequests.isNotEmpty;
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: CollectorColors.dark,
+          extendBody: true,
+          body: IndexedStack(
+            index: _index,
+            children: [
+              CollectorMapTab(pos: _pos),
+              const PickupsScreen(),
+              const EarningsScreen(),
+              const CollectorNotificationsScreen(),
+              const CollectorProfileTab(),
+            ],
+          ),
+          bottomNavigationBar: CBottomNav(
+            index: _index,
+            onChanged: (i) => setState(() => _index = i),
+            items: const [
+              (label: 'Map', icon: 'map'),
+              (label: 'Jobs', icon: 'jobs'),
+              (label: 'Wallet', icon: 'wallet'),
+              (label: 'Alerts', icon: 'notifications'),
+              (label: 'Profile', icon: 'profile'),
+            ],
+          ),
+        ),
+        if (showRequest)
+          Positioned.fill(child: IncomingRequestOverlay(request: prov.pendingRequests.first)),
+      ],
     );
   }
 }

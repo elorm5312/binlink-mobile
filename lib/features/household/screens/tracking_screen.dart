@@ -6,9 +6,9 @@ import 'package:latlong2/latlong.dart' as ll;
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/design_system/household_design_system.dart';
+import '../../../core/services/phone_launcher.dart';
 import '../../../core/routing/routing_service.dart';
 import '../../../shared/components/binlink_map.dart';
 import '../../../shared/screens/chat_screen.dart';
@@ -212,9 +212,12 @@ class _TrackingScreenState extends State<TrackingScreen> {
   }
 
   Future<void> _launchCall(String? phone) async {
-    if (phone == null || phone.isEmpty) return;
-    final uri = Uri.parse('tel:$phone');
-    if (await canLaunchUrl(uri)) await launchUrl(uri);
+    final ok = await PhoneLauncher.call(phone);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No phone number available for your collector yet.')),
+      );
+    }
   }
 
   void _openChat(Map<String, dynamic>? collector) {

@@ -188,9 +188,19 @@ class _AuthInterceptor extends Interceptor {
         opts.headers['Authorization'] = 'Bearer ${data['accessToken']}';
         final retried = await _dio.fetch(opts);
         handler.resolve(retried);
-      } catch (_) {
-        await SecureStorage.clearAll();
-        NavService.pushNamedAndRemoveUntil('/login');
+      } catch (refreshErr) {
+        // Only destroy the session when the refresh token is genuinely rejected
+        // by the server (401/403). A transient network failure during refresh
+        // (very common on Ghana 3G) must NOT log the user out — that was causing
+        // spurious auto-logouts. In that case keep the session and just surface
+        // the original error so the user can retry, still signed in.
+        final rejected = refreshErr is DioException &&
+            (refreshErr.response?.statusCode == 401 ||
+                refreshErr.response?.statusCode == 403);
+        if (rejected) {
+          await SecureStorage.clearAll();
+          NavService.pushNamedAndRemoveUntil('/login');
+        }
         handler.next(err);
       } finally {
         _isRefreshing = false;

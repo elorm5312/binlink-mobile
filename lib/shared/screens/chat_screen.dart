@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -29,6 +30,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final _messages = <ChatMessage>[];
 
   RealtimeChannel? _channel;
+  Timer? _poll;
   bool _loading = true;
   bool _sending = false;
   String? _error;
@@ -48,14 +50,33 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     _load();
     _subscribe();
+    // Polling fallback: Supabase Realtime can drop silently on mobile networks,
+    // which left the recipient never seeing new messages until they reopened the
+    // chat. A light 4s poll guarantees delivery regardless of socket health;
+    // messages are de-duplicated by id so this never double-adds.
+    _poll = Timer.periodic(const Duration(seconds: 4), (_) => _refresh());
   }
 
   @override
   void dispose() {
     _channel?.unsubscribe();
+    _poll?.cancel();
     _input.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  /// Silent background refresh (no spinner) used by the polling fallback.
+  Future<void> _refresh() async {
+    try {
+      final res = await ApiClient.get('/api/bookings/${widget.bookingId}/chat');
+      final list = (res.data['data'] as List?) ?? const [];
+      for (final e in list) {
+        _appendUnique(ChatMessage.fromMap(Map<String, dynamic>.from(e as Map)));
+      }
+    } catch (_) {
+      // Best-effort; the next tick retries.
+    }
   }
 
   Future<void> _load() async {

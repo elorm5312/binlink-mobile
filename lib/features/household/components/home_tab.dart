@@ -21,6 +21,10 @@ class HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<HomeTab> {
+  // Fallback map centre (central Accra) so the map + booking CTAs still render
+  // while GPS is resolving, or if location permission/services are unavailable.
+  static const _fallbackCenter = ll.LatLng(5.6037, -0.1870);
+
   void _openBook({String mode = 'immediate'}) {
     Navigator.push(
       context,
@@ -30,11 +34,12 @@ class _HomeTabState extends State<HomeTab> {
 
   @override
   Widget build(BuildContext context) {
-    final pos = widget.myPos;
     final provider = context.watch<HouseholdProvider>();
-    if (pos == null) {
-      return Center(child: SearchingRadarWidget(color: HouseholdColors.primary));
-    }
+    // Never block the whole screen on GPS. If location isn't resolved yet, fall
+    // back to a default centre so the map and booking CTAs always show — the
+    // user can still book by choosing an address in the booking flow.
+    final locating = widget.myPos == null;
+    final pos = widget.myPos ?? _fallbackCenter;
     final active = provider.activeBooking;
     final pickupMarker = _pickupMarkerFor(active, pos);
     return Stack(
@@ -56,7 +61,7 @@ class _HomeTabState extends State<HomeTab> {
             child: Row(children: [
               HIcon('location', color: HouseholdColors.primary),
               const SizedBox(width: 12),
-              Expanded(child: Text('Where should we collect?', style: HouseholdType.section)),
+              Expanded(child: Text(locating ? 'Locating you…' : 'Where should we collect?', style: HouseholdType.section)),
               HIcon('search', color: HouseholdColors.charcoal),
             ]),
           ),

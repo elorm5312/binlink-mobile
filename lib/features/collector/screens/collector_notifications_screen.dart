@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/design_system/collector_design_system.dart';
 import '../../../core/design_system/theme_provider.dart';
-import '../../../core/design_system/theme_provider.dart';
 import '../../../core/l10n/strings.dart';
+import 'collector_assistant_screen.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/components/binlink_avatar.dart';
@@ -221,6 +222,33 @@ class _CollectorSupportScreenState extends State<CollectorSupportScreen> {
       child: Form(
         key: _formKey,
         child: Column(children: [
+          // Instant self-serve help before filing a ticket.
+          GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CollectorAssistantScreen(
+                  onContactHuman: () => Navigator.of(context).maybePop(),
+                ),
+              ),
+            ),
+            child: CPanel(
+              child: Row(children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: CollectorColors.green.withAlpha(40),
+                  child: Icon(PhosphorIcons.robot(), color: CollectorColors.green, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Ask the assistant', style: CollectorType.section),
+                  Text('Instant answers on jobs, payouts, verification & more', style: CollectorType.caption),
+                ])),
+                Icon(PhosphorIcons.caretRight(), color: CollectorColors.gray),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 12),
           CPanel(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Contact dispatch', style: CollectorType.section),

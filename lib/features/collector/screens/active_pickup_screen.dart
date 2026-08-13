@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/design_system/collector_design_system.dart';
 import '../../../core/services/maps_launcher.dart';
+import '../../../core/services/phone_launcher.dart';
 import '../../../shared/components/binlink_map.dart';
 import '../../../shared/screens/chat_screen.dart';
 import '../providers/collector_provider.dart';
@@ -137,6 +138,24 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
     ));
   }
 
+  String? get _customerPhone {
+    final household = widget.booking['household'] as Map<String, dynamic>?;
+    final p = household?['phone'] as String?;
+    return (p != null && p.trim().isNotEmpty) ? p : null;
+  }
+
+  String get _customerName =>
+      (widget.booking['household'] as Map<String, dynamic>?)?['fullName'] as String? ?? 'Customer';
+
+  Future<void> _callCustomer() async {
+    final ok = await PhoneLauncher.call(_customerPhone);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No phone number available for this customer.')),
+      );
+    }
+  }
+
   Future<void> _confirmNoShow(CollectorProvider provider) async {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
@@ -213,6 +232,10 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
               icon: Icon(PhosphorIcons.navigationArrow(), color: CollectorColors.white),
             ),
             IconButton(
+              onPressed: _callCustomer,
+              icon: Icon(PhosphorIcons.phoneCall(), color: CollectorColors.green),
+            ),
+            IconButton(
               onPressed: _openChat,
               icon: Icon(PhosphorIcons.chatCircleDots(), color: CollectorColors.white),
             ),
@@ -228,6 +251,36 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
               const SizedBox(height: 10),
               Text(_etaText, style: CollectorType.hero),
               Text('Navigation, proof capture, weight and completion', style: CollectorType.caption),
+              const SizedBox(height: 12),
+              // Who you're collecting from — with quick call + message.
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: CollectorColors.dark,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: CollectorColors.green.withAlpha(36),
+                    child: Icon(PhosphorIcons.user(), color: CollectorColors.green, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(_customerName, maxLines: 1, overflow: TextOverflow.ellipsis, style: CollectorType.section),
+                    Text(_customerPhone ?? 'No phone provided', style: CollectorType.caption),
+                  ])),
+                  IconButton(
+                    onPressed: _customerPhone == null ? null : _callCustomer,
+                    icon: Icon(PhosphorIcons.phoneCall(PhosphorIconsStyle.fill),
+                        color: _customerPhone == null ? CollectorColors.gray : CollectorColors.green),
+                  ),
+                  IconButton(
+                    onPressed: _openChat,
+                    icon: Icon(PhosphorIcons.chatCircleDots(PhosphorIconsStyle.fill), color: CollectorColors.white),
+                  ),
+                ]),
+              ),
               if (_isNegotiated) ...[
                 const SizedBox(height: 10),
                 Container(

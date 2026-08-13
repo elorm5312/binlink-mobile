@@ -3,7 +3,7 @@ description: "BinLink Eco — Waste Marketplace (Ghana)"
 publish_to: 'none'
 # versionCode is overridden per-build in CI (--build-number=run number) so
 # every release installs as an update. Bump versionName for user-facing releases.
-version: 2.1.7+10
+version: 2.1.8+11
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -47,6 +47,9 @@ dependencies:
 
   # URL launcher (for calls, maps)
   url_launcher: ^6.3.0
+
+  # Loud looping ringtone for incoming collector job alerts
+  audioplayers: ^6.1.0
 
   # Permissions
   permission_handler: ^11.3.1
@@ -96,6 +99,7 @@ flutter:
 
   assets:
     - .env
+    - assets/sounds/
     - assets/household_assets/branding/
     - assets/household_assets/onboarding/
     - assets/household_assets/illustrations/
