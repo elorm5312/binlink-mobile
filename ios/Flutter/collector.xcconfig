@@ -1,0 +1,7 @@
+// Collector flavor configuration
+#include "Generated.xcconfig"
+
+PRODUCT_BUNDLE_IDENTIFIER = com.binlink.collector
+PRODUCT_NAME = BinLink Collector
+DISPLAY_NAME = BinLink Collector
+FIREBASE_CONFIG = GoogleService-Info-Collector

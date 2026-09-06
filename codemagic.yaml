@@ -1,0 +1,298 @@
+# BinLink Eco — Codemagic CI/CD Configuration
+# Builds iOS apps for both household and collector flavors
+#
+# SETUP REQUIRED (in Codemagic dashboard):
+# 1. Connect your GitHub repo (elorm5312/binlink-mobile)
+# 2. Go to Settings > Integrations > App Store Connect
+#    - Add integration named "BinLink"
+#    - Upload your App Store Connect API key (.p8 file)
+# 3. Create App IDs in Apple Developer Portal:
+#    - com.binlink.eco (BinLink Eco - Household)
+#    - com.binlink.collector (BinLink Collector)
+# 4. Create apps in App Store Connect for both bundle IDs
+# 5. Environment variables group "binlink_ios" with:
+#    - BUNDLE_ID_HOUSEHOLD = com.binlink.eco
+#    - BUNDLE_ID_COLLECTOR = com.binlink.collector
+#    - APP_STORE_CONNECT_ISSUER_ID (from App Store Connect > Keys)
+#    - APP_STORE_CONNECT_KEY_IDENTIFIER (Key ID)
+#    - APP_STORE_CONNECT_PRIVATE_KEY (contents of .p8 file)
+
+definitions:
+  ios_signing: &ios_signing
+    provisioning_profiles: &provisioning_profiles
+      - BinLink_AppStore_*
+    certificates: &certificates
+      - BinLink_Distribution_*
+
+workflows:
+  # ============================================================
+  # iOS HOUSEHOLD (BinLink Eco)
+  # ============================================================
+  ios-household:
+    name: iOS Household (BinLink Eco)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: BinLink
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.binlink.eco
+      flutter: 3.38.1
+      xcode: 15.4
+      cocoapods: default
+      vars:
+        BUNDLE_ID: com.binlink.eco
+        APP_NAME: "BinLink Eco"
+        FLAVOR: household
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: 'release/*'
+          include: true
+        - pattern: 'main'
+          include: false
+    scripts:
+      - name: Set up Flutter
+        script: |
+          flutter --version
+          flutter pub get
+
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios
+          pod install --repo-update
+
+      - name: Update bundle identifier in Info.plist
+        script: |
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $APP_NAME" ios/Runner/Info.plist
+          echo "Updated app name to: $APP_NAME"
+
+      - name: Set up code signing
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
+
+      - name: Build iOS IPA
+        script: |
+          flutter build ipa \
+            --flavor household \
+            --target lib/main_household.dart \
+            --release \
+            --build-number=$PROJECT_BUILD_NUMBER \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false
+      email:
+        recipients:
+          - cy-jnarh0623@st.umat.edu.gh
+        notify:
+          success: true
+          failure: true
+
+  # ============================================================
+  # iOS COLLECTOR (BinLink Collector)
+  # ============================================================
+  ios-collector:
+    name: iOS Collector (BinLink Collector)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: BinLink
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.binlink.collector
+      flutter: 3.38.1
+      xcode: 15.4
+      cocoapods: default
+      vars:
+        BUNDLE_ID: com.binlink.collector
+        APP_NAME: "BinLink Collector"
+        FLAVOR: collector
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: 'release/*'
+          include: true
+        - pattern: 'main'
+          include: false
+    scripts:
+      - name: Set up Flutter
+        script: |
+          flutter --version
+          flutter pub get
+
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios
+          pod install --repo-update
+
+      - name: Update bundle identifier in Info.plist
+        script: |
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $APP_NAME" ios/Runner/Info.plist
+          echo "Updated app name to: $APP_NAME"
+
+      - name: Set up code signing
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
+
+      - name: Build iOS IPA
+        script: |
+          flutter build ipa \
+            --flavor collector \
+            --target lib/main_collector.dart \
+            --release \
+            --build-number=$PROJECT_BUILD_NUMBER \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false
+      email:
+        recipients:
+          - cy-jnarh0623@st.umat.edu.gh
+        notify:
+          success: true
+          failure: true
+
+  # ============================================================
+  # BUILD BOTH (manual trigger)
+  # ============================================================
+  ios-all:
+    name: iOS All Flavors (Manual)
+    max_build_duration: 90
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: BinLink
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier:
+          - com.binlink.eco
+          - com.binlink.collector
+      flutter: 3.38.1
+      xcode: 15.4
+      cocoapods: default
+    scripts:
+      - name: Set up Flutter
+        script: |
+          flutter --version
+          flutter pub get
+
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios
+          pod install --repo-update
+
+      - name: Set up code signing (both apps)
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "com.binlink.eco" --type IOS_APP_STORE --create
+          app-store-connect fetch-signing-files "com.binlink.collector" --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles
+
+      - name: Build Household IPA
+        script: |
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName BinLink Eco" ios/Runner/Info.plist
+          flutter build ipa \
+            --flavor household \
+            --target lib/main_household.dart \
+            --release \
+            --build-number=$PROJECT_BUILD_NUMBER \
+            --export-options-plist=/Users/builder/export_options.plist
+          mkdir -p build/ios/output
+          cp build/ios/ipa/*.ipa build/ios/output/BinLink-Household.ipa
+
+      - name: Build Collector IPA
+        script: |
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName BinLink Collector" ios/Runner/Info.plist
+          flutter build ipa \
+            --flavor collector \
+            --target lib/main_collector.dart \
+            --release \
+            --build-number=$PROJECT_BUILD_NUMBER \
+            --export-options-plist=/Users/builder/export_options.plist
+          cp build/ios/ipa/*.ipa build/ios/output/BinLink-Collector.ipa
+
+    artifacts:
+      - build/ios/output/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+      email:
+        recipients:
+          - cy-jnarh0623@st.umat.edu.gh
+        notify:
+          success: true
+          failure: true
+
+  # ============================================================
+  # ANDROID (for completeness)
+  # ============================================================
+  android-all:
+    name: Android All Flavors
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      flutter: 3.38.1
+      java: 17
+      groups:
+        - binlink_android
+      vars:
+        KEYSTORE_PATH: $CM_BUILD_DIR/android/app/keystore.jks
+    scripts:
+      - name: Set up Flutter
+        script: flutter pub get
+
+      - name: Decode keystore
+        script: |
+          echo $KEYSTORE_BASE64 | base64 --decode > $KEYSTORE_PATH
+
+      - name: Build Household APK
+        script: |
+          flutter build apk \
+            --flavor household \
+            --target lib/main_household.dart \
+            --release
+          mkdir -p build/outputs
+          cp build/app/outputs/flutter-apk/app-household-release.apk build/outputs/BinLink-Household.apk
+
+      - name: Build Collector APK
+        script: |
+          flutter build apk \
+            --flavor collector \
+            --target lib/main_collector.dart \
+            --release
+          cp build/app/outputs/flutter-apk/app-collector-release.apk build/outputs/BinLink-Collector.apk
+
+    artifacts:
+      - build/outputs/*.apk
+    publishing:
+      email:
+        recipients:
+          - cy-jnarh0623@st.umat.edu.gh

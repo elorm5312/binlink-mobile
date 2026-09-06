@@ -1,0 +1,7 @@
+// Household flavor configuration
+#include "Generated.xcconfig"
+
+PRODUCT_BUNDLE_IDENTIFIER = com.binlink.eco
+PRODUCT_NAME = BinLink Eco
+DISPLAY_NAME = BinLink Eco
+FIREBASE_CONFIG = GoogleService-Info-Household
