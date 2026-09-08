@@ -12,7 +12,7 @@ import 'app_flavor.dart';
 import 'env.dart';
 import '../design_system/collector_design_system.dart';
 import '../services/background_location_service.dart';
-import '../services/fcm_service.dart';
+import '../services/push/push_manager.dart';
 import '../services/offline_action_queue_service.dart';
 import '../network/api_client.dart';
 
@@ -107,8 +107,7 @@ class CoreInitializer {
         badge: true,
         sound: true,
       );
-      FcmService.listenForRefresh();
-      FcmService.listenForeground();
+      PushManager.instance.init();
     } catch (e) {
       debugPrint('[Core] Firebase messaging setup failed: $e');
     }
