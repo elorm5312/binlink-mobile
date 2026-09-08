@@ -8,7 +8,7 @@ import 'package:dio/dio.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/storage/secure_storage.dart';
 import '../../../core/network/socket_service.dart';
-import '../../../core/services/fcm_service.dart';
+import '../../../core/services/push/push_manager.dart';
 import '../../../core/services/offline_action_queue_service.dart';
 import '../../../core/config/app_flavor.dart';
 import '../../../shared/models/user_model.dart';
@@ -40,7 +40,7 @@ class AuthProvider extends ChangeNotifier {
         _user = UserModel.fromJson(userData);
         _status = AuthStatus.authenticated;
         await SocketService.connect();
-        FcmService.registerToken();
+        PushManager.instance.registerToken();
         OfflineActionQueueService.syncNow();
         // Silently re-sync the account with the backend, declaring this app's
         // role. Older/legacy accounts that were created as HOUSEHOLD stay stuck
@@ -299,7 +299,7 @@ class AuthProvider extends ChangeNotifier {
     _status = AuthStatus.authenticated;
     _error = null;
     await SocketService.connect();
-    FcmService.registerToken();
+    PushManager.instance.registerToken();
     OfflineActionQueueService.syncNow();
     notifyListeners();
   }
