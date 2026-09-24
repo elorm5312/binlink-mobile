@@ -339,6 +339,17 @@ class CollectorProvider extends ChangeNotifier {
       if (action == 'complete' && agreedAmount != null) {
         body['agreedAmount'] = agreedAmount;
       }
+      // Marking arrived: attach the live GPS fix so the backend proximity check
+      // uses the current position (not a stale stored one) and never falsely
+      // rejects a collector who is actually at the pickup.
+      if (action == 'arrived') {
+        double? lat = _currentLat, lng = _currentLng;
+        try {
+          final pos = await LocationService.getCurrentPosition();
+          if (pos != null) { lat = pos.latitude; lng = pos.longitude; }
+        } catch (_) {}
+        if (lat != null && lng != null) { body['lat'] = lat; body['lng'] = lng; }
+      }
       await ApiClient.put('/api/bookings/$bookingId/$action', body.isEmpty ? null : body);
       const statusMap = {
         'on-the-way': 'ON_THE_WAY',
