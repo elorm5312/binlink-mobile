@@ -660,19 +660,22 @@ class _BottomCard extends StatelessWidget {
               ),
             ],
 
-            // Negotiated price confirmed but not yet paid → pay in-app (Paystack).
+            // Negotiated pickup, not yet paid → open payment to enter the
+            // collector's stated price and pay (Paystack/MoMo).
             if (booking['pricingMode'] == 'NEGOTIATED' &&
-                booking['negotiatedStatus'] == 'CONFIRMED' &&
                 booking['paymentStatus'] != 'PAID' &&
                 !_isDone) ...[
               const SizedBox(height: 12),
-              HButton(
-                label: 'Pay GHS ${(num.tryParse('${booking['negotiatedAmount'] ?? booking['totalAmount']}') ?? 0).toStringAsFixed(2)} now',
-                icon: 'payment',
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => PaymentScreen(booking: booking)),
-                ),
-              ),
+              Builder(builder: (_) {
+                final amt = num.tryParse('${booking['negotiatedAmount'] ?? booking['totalAmount']}') ?? 0;
+                return HButton(
+                  label: amt > 0 ? 'Pay GHS ${amt.toStringAsFixed(2)} now' : 'Enter price & pay',
+                  icon: 'payment',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => PaymentScreen(booking: booking)),
+                  ),
+                );
+              }),
             ],
             const SizedBox(height: 16),
 

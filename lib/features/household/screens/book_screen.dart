@@ -49,6 +49,9 @@ class _BookScreenState extends State<BookScreen> {
   // Step 2
   String _binSize = 'MEDIUM';
   int _extraBags = 0;
+  // Household chose to negotiate instead of fixed bin pricing (loose refuse,
+  // over-heaped bins, rubbish lying around). Price is entered at payment.
+  bool _negotiate = false;
 
   // Step 2 — bulky items (photos so the collector can see the load)
   final List<XFile> _bulkyPhotos = [];
@@ -232,11 +235,10 @@ class _BookScreenState extends State<BookScreen> {
 
     final booking = await prov.createBooking(
       binSize: _binSize,
-      extraBags: _isFixed ? _extraBags : 0,
+      extraBags: (_isFixed && !_negotiate) ? _extraBags : 0,
       pickupAddress: addr,
       pickupLat: _lat!,
       pickupLng: _lng!,
-      // Negotiated bookings are always paid on pickup, directly to the collector.
       paymentMethod: _isFixed ? _payment : 'CASH',
       wasteCategory: _category,
       timePreference: _isImmediate ? null : _timePref,
@@ -244,8 +246,8 @@ class _BookScreenState extends State<BookScreen> {
       scheduledDate: _isImmediate ? null : _scheduledDate,
       frequency: _frequency != 'ONE_TIME' ? _frequency : null,
       preferredCollectorId: widget.preferredCollectorId,
-      promoCode: _isFixed ? _promoCode : null,
-      pricingMode: _isFixed ? null : 'NEGOTIATED',
+      promoCode: (_isFixed && !_negotiate) ? _promoCode : null,
+      pricingMode: (_isFixed && !_negotiate) ? null : 'NEGOTIATED',
       bulkyPhotos: photoUrls,
     );
     if (!mounted) return;
@@ -263,9 +265,9 @@ class _BookScreenState extends State<BookScreen> {
       return;
     }
     prov.listenToBooking(booking['id'] as String);
-    // Negotiated bookings have nothing to pay in-app — the price is agreed on
-    // arrival and paid directly to the collector.
-    if (_payment == 'CASH' || !_isFixed) {
+    // Negotiated bookings go to tracking first — the collector states a price on
+    // arrival which the customer then enters on the payment screen.
+    if (_payment == 'CASH' || !_isFixed || _negotiate) {
       Navigator.of(context).pushReplacement(MaterialPageRoute(
         builder: (_) => TrackingScreen(booking: booking),
       ));
@@ -373,10 +375,12 @@ class _BookScreenState extends State<BookScreen> {
                   category: _category,
                   binSize: _binSize,
                   extraBags: _extraBags,
+                  isNegotiated: _negotiate,
                   bulkyPhotos: _bulkyPhotos,
                   bulkyDescCtrl: _bulkyDescCtrl,
                   onBin: (v) => setState(() => _binSize = v),
                   onBags: (v) => setState(() => _extraBags = v),
+                  onNegotiate: (v) => setState(() => _negotiate = v),
                   onAddPhoto: _pickBulkyPhoto,
                   onRemovePhoto: (i) => setState(() => _bulkyPhotos.removeAt(i)),
                 ),
@@ -636,20 +640,24 @@ class _Step2 extends StatelessWidget {
     required this.category,
     required this.binSize,
     required this.extraBags,
+    required this.isNegotiated,
     required this.bulkyPhotos,
     required this.bulkyDescCtrl,
     required this.onBin,
     required this.onBags,
+    required this.onNegotiate,
     required this.onAddPhoto,
     required this.onRemovePhoto,
   });
   final String category;
   final String binSize;
   final int extraBags;
+  final bool isNegotiated;
   final List<XFile> bulkyPhotos;
   final TextEditingController bulkyDescCtrl;
   final ValueChanged<String> onBin;
   final ValueChanged<int> onBags;
+  final ValueChanged<bool> onNegotiate;
   final ValueChanged<ImageSource> onAddPhoto;
   final ValueChanged<int> onRemovePhoto;
 
@@ -878,18 +886,50 @@ class _Step2 extends StatelessWidget {
           ]),
         ),
         const SizedBox(height: 24),
-        // Negotiate option — household can propose their own price at payment.
-        HCard(
-          color: HouseholdColors.primary.withAlpha(16),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Icon(PhosphorIcons.handshake(), color: HouseholdColors.primary, size: 22),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Prefer to negotiate?', style: HouseholdType.section.copyWith(color: HouseholdColors.primary)),
-              const SizedBox(height: 2),
-              Text('Not happy with the fixed price? Tap “Negotiate price” on the payment screen to propose your own amount — BinLink will review it.', style: HouseholdType.caption),
-            ])),
-          ]),
+        // Selectable negotiate option — for waste that doesn't fit the bins.
+        GestureDetector(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            onNegotiate(!isNegotiated);
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isNegotiated ? HouseholdColors.primary.withAlpha(24) : HouseholdColors.card,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isNegotiated ? HouseholdColors.primary : HouseholdColors.border,
+                width: isNegotiated ? 2 : 1,
+              ),
+            ),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(PhosphorIcons.handshake(),
+                  color: isNegotiated ? HouseholdColors.primary : HouseholdColors.gray, size: 24),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Expanded(child: Text('Prefer to negotiate?',
+                      style: HouseholdType.section.copyWith(
+                          color: isNegotiated ? HouseholdColors.primary : HouseholdColors.charcoal))),
+                  Icon(isNegotiated ? PhosphorIcons.checkCircle(PhosphorIconsStyle.fill) : PhosphorIcons.circle(),
+                      color: isNegotiated ? HouseholdColors.primary : HouseholdColors.border, size: 22),
+                ]),
+                const SizedBox(height: 4),
+                Text(
+                  'For refuse not in bins, over-heaped bins, or rubbish just lying around. '
+                  'Your collector looks at the load and states a price on arrival — you enter '
+                  'that as the amount to pay on the payment screen.',
+                  style: HouseholdType.caption,
+                ),
+                if (isNegotiated) ...[
+                  const SizedBox(height: 8),
+                  Text('Selected — the fixed bin price above won\'t apply.',
+                      style: HouseholdType.caption.copyWith(color: HouseholdColors.primary, fontWeight: FontWeight.w700)),
+                ],
+              ])),
+            ]),
+          ),
         ),
         const SizedBox(height: 24),
         _photoSection(context, isRequired: false),

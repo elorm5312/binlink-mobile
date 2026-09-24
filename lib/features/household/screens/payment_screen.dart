@@ -74,16 +74,15 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
   @override
   Widget build(BuildContext context) {
     final isNegotiated = widget.booking['pricingMode'] == 'NEGOTIATED';
-    final negStatus = widget.booking['negotiatedStatus'] as String?;
-    // For negotiated pickups the payable amount is the household-confirmed price.
+    // For negotiated pickups the payable amount is the household-entered price.
     final amount = isNegotiated
         ? (widget.booking['negotiatedAmount'] ?? widget.booking['totalAmount'])
         : widget.booking['totalAmount'];
     final bookingId = widget.booking['id'] as String?;
     final walletBalance = context.watch<HouseholdProvider>().walletBalance;
     final amountValue = (amount as num?)?.toDouble() ?? double.tryParse('$amount') ?? 0;
-    // Can't pay a negotiated pickup until the price is agreed & confirmed in tracking.
-    final negotiatedPending = isNegotiated && (negStatus != 'CONFIRMED' || amountValue <= 0);
+    // A negotiated pickup is payable once an amount has been entered.
+    final negotiatedPending = isNegotiated && amountValue <= 0;
     return Scaffold(
       backgroundColor: HouseholdColors.sand,
       body: SafeArea(
@@ -113,16 +112,11 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
                   const SizedBox(height: 8),
                 ],
                 Text(
-                  negStatus == 'CUSTOMER_PROPOSED' && amountValue > 0
-                      ? 'GHS $amount'
-                      : negotiatedPending
-                          ? 'Awaiting agreed price'
-                          : (amount == null ? 'Amount pending' : 'GHS $amount'),
+                  negotiatedPending
+                      ? 'Enter the collector\'s price'
+                      : (amount == null ? 'Amount pending' : 'GHS $amount'),
                   style: HouseholdType.hero,
                 ),
-                if (negStatus == 'CUSTOMER_PROPOSED')
-                  Text('Your proposed price — pending review',
-                      style: HouseholdType.caption.copyWith(color: HouseholdColors.primary, fontWeight: FontWeight.w700)),
                 Text(widget.booking['pickupAddress'] as String? ?? 'Pickup payment', style: HouseholdType.caption),
               ]),
             ),
@@ -134,9 +128,8 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
                   HIcon('security', color: HouseholdColors.primary),
                   const SizedBox(width: 12),
                   Expanded(child: Text(
-                    negStatus == 'CUSTOMER_PROPOSED'
-                        ? 'Your proposed price has been submitted and is pending review by BinLink. You can pay once it is confirmed.'
-                        : 'Your collector will propose a price on arrival. Confirm it on the tracking screen, then come back here to pay.',
+                    'This is a negotiated pickup. Once your collector states a price on arrival, '
+                    'tap “Negotiate price” below to enter that amount, then pay.',
                     style: HouseholdType.body.copyWith(color: HouseholdColors.charcoal),
                   )),
                 ]),
@@ -236,7 +229,7 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
             const SizedBox(height: 10),
             // Customer-initiated negotiation: propose your own price for admin review.
             HButton(
-              label: negStatus == 'CUSTOMER_PROPOSED' ? 'Update negotiated price' : 'Negotiate price',
+              label: amountValue > 0 && isNegotiated ? 'Update negotiated price' : 'Negotiate price',
               icon: 'security',
               secondary: true,
               onPressed: bookingId == null ? null : () => _negotiate(bookingId),
@@ -304,7 +297,8 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
       setState(() {
         widget.booking['pricingMode'] = 'NEGOTIATED';
         widget.booking['negotiatedAmount'] = amount;
-        widget.booking['negotiatedStatus'] = 'CUSTOMER_PROPOSED';
+        widget.booking['totalAmount'] = amount;
+        widget.booking['negotiatedStatus'] = 'CONFIRMED';
       });
     }
     messenger.showSnackBar(SnackBar(content: Text(
