@@ -49,7 +49,6 @@ class _BookScreenState extends State<BookScreen> {
   // Step 2
   String _binSize = 'MEDIUM';
   int _extraBags = 0;
-  double _weightKg = 100;
 
   // Step 2 — bulky items (photos so the collector can see the load)
   final List<XFile> _bulkyPhotos = [];
@@ -241,7 +240,6 @@ class _BookScreenState extends State<BookScreen> {
       paymentMethod: _isFixed ? _payment : 'CASH',
       wasteCategory: _category,
       timePreference: _isImmediate ? null : _timePref,
-      estimatedWeightKg: _weightKg > 0 ? _weightKg : null,
       addressNotes: notes.isNotEmpty ? notes : null,
       scheduledDate: _isImmediate ? null : _scheduledDate,
       frequency: _frequency != 'ONE_TIME' ? _frequency : null,
@@ -375,12 +373,10 @@ class _BookScreenState extends State<BookScreen> {
                   category: _category,
                   binSize: _binSize,
                   extraBags: _extraBags,
-                  weightKg: _weightKg,
                   bulkyPhotos: _bulkyPhotos,
                   bulkyDescCtrl: _bulkyDescCtrl,
                   onBin: (v) => setState(() => _binSize = v),
                   onBags: (v) => setState(() => _extraBags = v),
-                  onWeight: (v) => setState(() => _weightKg = v),
                   onAddPhoto: _pickBulkyPhoto,
                   onRemovePhoto: (i) => setState(() => _bulkyPhotos.removeAt(i)),
                 ),
@@ -640,24 +636,20 @@ class _Step2 extends StatelessWidget {
     required this.category,
     required this.binSize,
     required this.extraBags,
-    required this.weightKg,
     required this.bulkyPhotos,
     required this.bulkyDescCtrl,
     required this.onBin,
     required this.onBags,
-    required this.onWeight,
     required this.onAddPhoto,
     required this.onRemovePhoto,
   });
   final String category;
   final String binSize;
   final int extraBags;
-  final double weightKg;
   final List<XFile> bulkyPhotos;
   final TextEditingController bulkyDescCtrl;
   final ValueChanged<String> onBin;
   final ValueChanged<int> onBags;
-  final ValueChanged<double> onWeight;
   final ValueChanged<ImageSource> onAddPhoto;
   final ValueChanged<int> onRemovePhoto;
 
@@ -675,31 +667,10 @@ class _Step2 extends StatelessWidget {
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Price agreed on arrival', style: HouseholdType.section.copyWith(color: HouseholdColors.primary)),
             const SizedBox(height: 2),
-            Text('No fixed charge — your collector will look at the load and agree a fair price with you before collecting. Pay cash or MoMo on pickup.', style: HouseholdType.caption),
+            Text('No fixed charge — your collector proposes a price on arrival, you confirm it, then pay securely in the app (MoMo/card) or with cash.', style: HouseholdType.caption),
           ])),
         ]),
       );
-
-  Widget _weightSlider(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Estimated weight', style: HouseholdType.section),
-        const SizedBox(height: 4),
-        Text('Optional — helps match the right vehicle.', style: HouseholdType.caption),
-        const SizedBox(height: 12),
-        HCard(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          child: Column(children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text('0 kg', style: HouseholdType.caption),
-              Text('${weightKg.round()} kg', style: HouseholdType.number.copyWith(color: HouseholdColors.primary, fontSize: 18)),
-              Text('500 kg', style: HouseholdType.caption),
-            ]),
-            SliderTheme(
-              data: SliderTheme.of(context).copyWith(activeTrackColor: HouseholdColors.primary, thumbColor: HouseholdColors.primary, inactiveTrackColor: HouseholdColors.border, overlayColor: HouseholdColors.primary.withAlpha(30)),
-              child: Slider(value: weightKg, min: 0, max: 500, divisions: 10, onChanged: onWeight),
-            ),
-          ]),
-        ),
-      ]);
 
   /// Photo grid shared by all categories — required for bulky, optional
   /// elsewhere so the collector can see the rubbish before arriving when it's
@@ -746,8 +717,6 @@ class _Step2 extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         _negotiatedCard(),
-        const SizedBox(height: 20),
-        _weightSlider(context),
       ]),
     );
   }
@@ -839,8 +808,6 @@ class _Step2 extends StatelessWidget {
         _negotiatedCard(),
         const SizedBox(height: 20),
         _photoSection(context, isRequired: false),
-        const SizedBox(height: 20),
-        _weightSlider(context),
       ]),
     );
   }
@@ -912,8 +879,6 @@ class _Step2 extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         _photoSection(context, isRequired: false),
-        const SizedBox(height: 24),
-        _weightSlider(context),
       ]),
     );
   }

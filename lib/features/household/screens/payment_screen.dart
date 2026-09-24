@@ -73,10 +73,17 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
 
   @override
   Widget build(BuildContext context) {
-    final amount = widget.booking['totalAmount'];
+    final isNegotiated = widget.booking['pricingMode'] == 'NEGOTIATED';
+    final negStatus = widget.booking['negotiatedStatus'] as String?;
+    // For negotiated pickups the payable amount is the household-confirmed price.
+    final amount = isNegotiated
+        ? (widget.booking['negotiatedAmount'] ?? widget.booking['totalAmount'])
+        : widget.booking['totalAmount'];
     final bookingId = widget.booking['id'] as String?;
     final walletBalance = context.watch<HouseholdProvider>().walletBalance;
     final amountValue = (amount as num?)?.toDouble() ?? double.tryParse('$amount') ?? 0;
+    // Can't pay a negotiated pickup until the price is agreed & confirmed in tracking.
+    final negotiatedPending = isNegotiated && (negStatus != 'CONFIRMED' || amountValue <= 0);
     return Scaffold(
       backgroundColor: HouseholdColors.sand,
       body: SafeArea(
@@ -93,10 +100,41 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Image.asset(HouseholdAssets.ecoPoints, height: 100),
                 const SizedBox(height: 12),
-                Text(amount == null ? 'Amount pending' : 'GHS $amount', style: HouseholdType.hero),
+                if (isNegotiated) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: HouseholdColors.primary.withAlpha(20),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text('Negotiated price',
+                        style: HouseholdType.caption.copyWith(color: HouseholdColors.primary, fontWeight: FontWeight.w700)),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                Text(
+                  negotiatedPending
+                      ? 'Awaiting agreed price'
+                      : (amount == null ? 'Amount pending' : 'GHS $amount'),
+                  style: HouseholdType.hero,
+                ),
                 Text(widget.booking['pickupAddress'] as String? ?? 'Pickup payment', style: HouseholdType.caption),
               ]),
             ),
+            if (negotiatedPending) ...[
+              const SizedBox(height: 12),
+              HCard(
+                color: HouseholdColors.infoTint,
+                child: Row(children: [
+                  HIcon('security', color: HouseholdColors.primary),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(
+                    'Your collector will propose a price on arrival. Confirm it on the tracking screen, then come back here to pay.',
+                    style: HouseholdType.body.copyWith(color: HouseholdColors.charcoal),
+                  )),
+                ]),
+              ),
+            ],
             if (_error != null) ...[
               const SizedBox(height: 12),
               HCard(color: HouseholdColors.dangerTint, child: Text(_error!, style: HouseholdType.body.copyWith(color: HouseholdColors.danger))),
@@ -184,7 +222,7 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
                           : 'Initialize secure payment',
               icon: 'payment',
               loading: _loading || _polling,
-              onPressed: bookingId == null || _polling || (_method == 'wallet' && walletBalance < amountValue)
+              onPressed: bookingId == null || _polling || negotiatedPending || (_method == 'wallet' && walletBalance < amountValue)
                   ? null
                   : () => _confirmPayment(bookingId),
             ),

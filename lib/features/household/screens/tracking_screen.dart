@@ -13,6 +13,7 @@ import '../../../core/routing/routing_service.dart';
 import '../../../shared/components/binlink_map.dart';
 import '../../../shared/screens/chat_screen.dart';
 import '../providers/household_provider.dart';
+import 'payment_screen.dart';
 
 class TrackingScreen extends StatefulWidget {
   const TrackingScreen({super.key, required this.booking});
@@ -656,6 +657,21 @@ class _BottomCard extends StatelessWidget {
                     onPressed: () => onConfirmNegotiation((booking['negotiatedProposal'] as num).toDouble()),
                   ),
                 ]),
+              ),
+            ],
+
+            // Negotiated price confirmed but not yet paid → pay in-app (Paystack).
+            if (booking['pricingMode'] == 'NEGOTIATED' &&
+                booking['negotiatedStatus'] == 'CONFIRMED' &&
+                booking['paymentStatus'] != 'PAID' &&
+                !_isDone) ...[
+              const SizedBox(height: 12),
+              HButton(
+                label: 'Pay GHS ${(num.tryParse('${booking['negotiatedAmount'] ?? booking['totalAmount']}') ?? 0).toStringAsFixed(2)} now',
+                icon: 'payment',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => PaymentScreen(booking: booking)),
+                ),
               ),
             ],
             const SizedBox(height: 16),
