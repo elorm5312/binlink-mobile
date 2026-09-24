@@ -113,11 +113,16 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
                   const SizedBox(height: 8),
                 ],
                 Text(
-                  negotiatedPending
-                      ? 'Awaiting agreed price'
-                      : (amount == null ? 'Amount pending' : 'GHS $amount'),
+                  negStatus == 'CUSTOMER_PROPOSED' && amountValue > 0
+                      ? 'GHS $amount'
+                      : negotiatedPending
+                          ? 'Awaiting agreed price'
+                          : (amount == null ? 'Amount pending' : 'GHS $amount'),
                   style: HouseholdType.hero,
                 ),
+                if (negStatus == 'CUSTOMER_PROPOSED')
+                  Text('Your proposed price — pending review',
+                      style: HouseholdType.caption.copyWith(color: HouseholdColors.primary, fontWeight: FontWeight.w700)),
                 Text(widget.booking['pickupAddress'] as String? ?? 'Pickup payment', style: HouseholdType.caption),
               ]),
             ),
@@ -129,7 +134,9 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
                   HIcon('security', color: HouseholdColors.primary),
                   const SizedBox(width: 12),
                   Expanded(child: Text(
-                    'Your collector will propose a price on arrival. Confirm it on the tracking screen, then come back here to pay.',
+                    negStatus == 'CUSTOMER_PROPOSED'
+                        ? 'Your proposed price has been submitted and is pending review by BinLink. You can pay once it is confirmed.'
+                        : 'Your collector will propose a price on arrival. Confirm it on the tracking screen, then come back here to pay.',
                     style: HouseholdType.body.copyWith(color: HouseholdColors.charcoal),
                   )),
                 ]),
@@ -226,10 +233,82 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
                   ? null
                   : () => _confirmPayment(bookingId),
             ),
+            const SizedBox(height: 10),
+            // Customer-initiated negotiation: propose your own price for admin review.
+            HButton(
+              label: negStatus == 'CUSTOMER_PROPOSED' ? 'Update negotiated price' : 'Negotiate price',
+              icon: 'security',
+              secondary: true,
+              onPressed: bookingId == null ? null : () => _negotiate(bookingId),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  /// Let the customer enter their own negotiated price. Stored on the booking
+  /// and shown to admin; payment stays disabled until it's confirmed.
+  Future<void> _negotiate(String bookingId) async {
+    final ctrl = TextEditingController();
+    final messenger = ScaffoldMessenger.of(context);
+    final provider = context.read<HouseholdProvider>();
+    String? fieldError;
+    final amount = await showDialog<double>(
+      context: context,
+      builder: (d) => StatefulBuilder(
+        builder: (d, setDialogState) => AlertDialog(
+          backgroundColor: HouseholdColors.card,
+          title: Text('Negotiate price', style: HouseholdType.title),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('Enter the price (GHS) you want to propose. BinLink will review it.',
+                style: HouseholdType.caption),
+            const SizedBox(height: 14),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: HouseholdType.title,
+              decoration: InputDecoration(
+                prefixText: 'GHS ',
+                hintText: '0.00',
+                errorText: fieldError,
+                filled: true,
+                fillColor: HouseholdColors.warmWhite,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+              ),
+            ),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(d), child: const Text('Cancel')),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: HouseholdColors.primary),
+              onPressed: () {
+                final v = double.tryParse(ctrl.text.trim());
+                if (v == null || v <= 0) {
+                  setDialogState(() => fieldError = 'Enter a valid amount');
+                  return;
+                }
+                Navigator.pop(d, v);
+              },
+              child: const Text('Submit'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (amount == null) return;
+    final ok = await provider.customerNegotiate(bookingId, amount);
+    if (!mounted) return;
+    if (ok) {
+      setState(() {
+        widget.booking['pricingMode'] = 'NEGOTIATED';
+        widget.booking['negotiatedAmount'] = amount;
+        widget.booking['negotiatedStatus'] = 'CUSTOMER_PROPOSED';
+      });
+    }
+    messenger.showSnackBar(SnackBar(content: Text(
+        ok ? 'Price submitted for review — GHS ${amount.toStringAsFixed(2)}' : (provider.error ?? 'Could not submit price'))));
   }
 
   Future<void> _confirmPayment(String bookingId) async {

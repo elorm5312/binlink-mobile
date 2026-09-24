@@ -500,6 +500,26 @@ class HouseholdProvider extends ChangeNotifier {
     }
   }
 
+  /// Household enters its own negotiated price on the payment screen. Recorded
+  /// on the booking (pricingMode NEGOTIATED, status CUSTOMER_PROPOSED) so admin
+  /// can view/monitor it.
+  Future<bool> customerNegotiate(String bookingId, double amount) async {
+    try {
+      await ApiClient.post('/api/bookings/$bookingId/negotiate/customer', {'amount': amount});
+      _error = null;
+      await loadBookings();
+      return true;
+    } on DioException catch (e) {
+      _error = e.response?.data?['error'] ?? 'Failed to submit your price';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = 'An unexpected error occurred';
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Fallback poll so the household sees ACCEPTED / status changes within a few
   /// seconds even when the socket is slow or dropped (the top complaint was a
   /// long delay before "collector accepted / on the way" showed). Cheap: it
