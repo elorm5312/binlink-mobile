@@ -380,6 +380,32 @@ class CollectorProvider extends ChangeNotifier {
     }
   }
 
+  // Negotiated pricing: collector proposes an amount; household confirms in-app.
+  Future<bool> proposeNegotiation(String bookingId, double amount) async {
+    _error = null;
+    try {
+      await ApiClient.post('/api/bookings/$bookingId/negotiate', {'amount': amount});
+      final idx = _activePickups.indexWhere((p) => p['id'] == bookingId);
+      if (idx >= 0) {
+        _activePickups[idx] = {
+          ..._activePickups[idx],
+          'negotiatedProposal': amount,
+          'negotiatedStatus': 'PROPOSED',
+        };
+      }
+      notifyListeners();
+      return true;
+    } on DioException catch (e) {
+      _error = e.response?.data?['error'] ?? 'Failed to propose price';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = 'Network error — price not sent';
+      notifyListeners();
+      return false;
+    }
+  }
+
   // ── Jobs for PickupsScreen ──────────────────────────────────────────────────
   List<Map<String, dynamic>> _allJobs  = [];
   bool _loadingJobs = false;

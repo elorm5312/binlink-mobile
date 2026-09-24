@@ -30,7 +30,13 @@ class AuthProvider extends ChangeNotifier {
   // Lazy so constructing AuthProvider never touches Firebase before
   // Firebase.initializeApp() has run (would throw "No Firebase App").
   FirebaseAuth get _firebaseAuth => FirebaseAuth.instance;
-  final _googleSignIn = GoogleSignIn();
+  // serverClientId = the Web OAuth client (type 3) from google-services.json.
+  // Passing it guarantees googleAuth.idToken is populated so the backend can
+  // verify the sign-in; without it Android sometimes returns a null idToken.
+  final _googleSignIn = GoogleSignIn(
+    serverClientId:
+        '781294511680-si9b7g4ev1lh2re4psqvij7tr92c4qao.apps.googleusercontent.com',
+  );
 
   Future<void> initialize() async {
     try {

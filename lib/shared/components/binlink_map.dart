@@ -358,7 +358,12 @@ class BinLinkMapState extends State<BinLinkMap> {
       ),
       styleString: styleUrl,
       myLocationEnabled: widget.myLocationEnabled,
-      myLocationRenderMode: MyLocationRenderMode.compass,
+      // MapLibre asserts compass/gps render modes require myLocationEnabled == true.
+      // Fall back to `normal` when the location layer is disabled (collector offline /
+      // household tracking) so the map does not crash. See WP screenshot 2026-09-24.
+      myLocationRenderMode: widget.myLocationEnabled
+          ? MyLocationRenderMode.compass
+          : MyLocationRenderMode.normal,
       myLocationTrackingMode: widget.isNavigating
           ? MyLocationTrackingMode.trackingGps
           : MyLocationTrackingMode.none,

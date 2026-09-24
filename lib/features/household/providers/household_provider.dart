@@ -477,6 +477,29 @@ class HouseholdProvider extends ChangeNotifier {
     }
   }
 
+  /// Negotiated pricing: household confirms (or rejects) the collector's proposed
+  /// amount. When [accept] is true and [amount] is given, that value becomes the
+  /// agreed price the admin panel monitors; passing no amount accepts the proposal.
+  Future<bool> confirmNegotiation(String bookingId, {double? amount, bool accept = true}) async {
+    try {
+      await ApiClient.post('/api/bookings/$bookingId/negotiate/confirm', {
+        'accept': accept,
+        if (amount != null) 'amount': amount,
+      });
+      _error = null;
+      await loadBookings();
+      return true;
+    } on DioException catch (e) {
+      _error = e.response?.data?['error'] ?? 'Failed to confirm price';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = 'An unexpected error occurred';
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Fallback poll so the household sees ACCEPTED / status changes within a few
   /// seconds even when the socket is slow or dropped (the top complaint was a
   /// long delay before "collector accepted / on the way" showed). Cheap: it
@@ -557,12 +580,31 @@ class HouseholdProvider extends ChangeNotifier {
         }
       } catch (_) {}
     });
+
+    // Negotiated pricing: collector proposed / customer confirmed an amount.
+    SocketService.on('booking:negotiation', (data) {
+      try {
+        final d = data as Map<String, dynamic>;
+        if (d['bookingId'] != bookingId || _activeBooking == null) return;
+        _activeBooking = {
+          ..._activeBooking!,
+          if (d['status'] != null) 'negotiatedStatus': d['status'],
+          if (d['proposal'] != null) 'negotiatedProposal': d['proposal'],
+          if (d['amount'] != null) ...{
+            'negotiatedAmount': d['amount'],
+            'totalAmount': d['amount'],
+          },
+        };
+        notifyListeners();
+      } catch (_) {}
+    });
   }
 
   void stopListening() {
     SocketService.off('booking:accepted');
     SocketService.off('booking:status');
     SocketService.off('collector:location');
+    SocketService.off('booking:negotiation');
     _collectorLat = null;
     _collectorLng = null;
     _gpsSmoother.reset();

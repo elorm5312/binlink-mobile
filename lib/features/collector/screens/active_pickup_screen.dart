@@ -23,7 +23,19 @@ class ActivePickupScreen extends StatefulWidget {
 
 class _ActivePickupScreenState extends State<ActivePickupScreen> {
   late String _status = widget.booking['status'] as String? ?? 'ACCEPTED';
-  double _weight = 18;
+  // Weight capture removed — no weighing scale is used in the field.
+
+  Widget _negBanner(String text, Color color) => Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withAlpha(28),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withAlpha(90)),
+        ),
+        child: Text(text, style: CollectorType.caption.copyWith(color: color, fontWeight: FontWeight.w700)),
+      );
   final _picker = ImagePicker();
   final Set<String> _uploadedPhotos = {};
   String? _photoError;
@@ -328,9 +340,40 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
                 Text(_photoError!, style: CollectorType.caption.copyWith(color: CollectorColors.red)),
               ],
               const SizedBox(height: 16),
-              if (_status == 'ARRIVED' || _status == 'COLLECTING') ...[
-                Slider(value: _weight, min: 1, max: 120, activeColor: CollectorColors.green, onChanged: (v) => setState(() => _weight = v)),
-                Text('Weight capture: ${_weight.round()} kg', style: CollectorType.caption),
+              // Negotiated pricing: collector proposes an amount, customer confirms in-app.
+              if (_isNegotiated && (_status == 'ARRIVED' || _status == 'COLLECTING')) ...[
+                Builder(builder: (_) {
+                  final st = widget.booking['negotiatedStatus'] as String?;
+                  final proposal = (widget.booking['negotiatedProposal'] as num?)?.toDouble();
+                  final agreed = (widget.booking['negotiatedAmount'] as num?)?.toDouble();
+                  if (st == 'CONFIRMED' && agreed != null) {
+                    return _negBanner('Customer confirmed GHS ${agreed.toStringAsFixed(2)}', CollectorColors.green);
+                  }
+                  return Column(children: [
+                    if (st == 'PROPOSED' && proposal != null)
+                      _negBanner('Proposed GHS ${proposal.toStringAsFixed(2)} — awaiting customer', CollectorColors.warning),
+                    CButton(
+                      label: st == 'PROPOSED' ? 'RE-PROPOSE PRICE' : 'PROPOSE PRICE TO CUSTOMER',
+                      icon: 'navigation',
+                      secondary: true,
+                      onPressed: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        final amount = await _askAgreedPrice();
+                        if (amount == null || !mounted) return;
+                        final ok = await provider.proposeNegotiation(widget.booking['id'] as String, amount);
+                        if (!mounted) return;
+                        if (ok) {
+                          setState(() {
+                            widget.booking['negotiatedStatus'] = 'PROPOSED';
+                            widget.booking['negotiatedProposal'] = amount;
+                          });
+                        }
+                        messenger.showSnackBar(SnackBar(content: Text(
+                          ok ? 'Price sent to customer for confirmation' : (provider.error ?? 'Could not send price'))));
+                      },
+                    ),
+                  ]);
+                }),
                 const SizedBox(height: 10),
               ],
               CButton(label: _nextLabel(_status), icon: 'navigation', onPressed: () async {
@@ -340,11 +383,15 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
                 final bookingId = widget.booking['id'] as String?;
                 if (bookingId == null) return;
                 double? agreedAmount;
-                if (action == 'complete' && _isNegotiated) {
+                // If the customer already confirmed a negotiated price, use it and
+                // skip re-asking; otherwise fall back to entering it at completion.
+                if (action == 'complete' && _isNegotiated &&
+                    widget.booking['negotiatedStatus'] != 'CONFIRMED') {
                   agreedAmount = await _askAgreedPrice();
                   if (agreedAmount == null || !mounted) return;
                 }
-                final ok = await provider.updateStatus(bookingId, action, actualWeightKg: _weight, agreedAmount: agreedAmount);
+                // Weight is intentionally not captured (no weighing scale in the field).
+                final ok = await provider.updateStatus(bookingId, action, agreedAmount: agreedAmount);
                 if (!mounted) return;
                 if (!ok) {
                   messenger.showSnackBar(

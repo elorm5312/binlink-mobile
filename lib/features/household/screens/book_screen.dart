@@ -16,7 +16,7 @@ import '../providers/household_provider.dart';
 import 'payment_screen.dart';
 import 'tracking_screen.dart';
 
-const _kPrices = {'SMALL': 40.0, 'MEDIUM': 50.0, 'LARGE': 60.0};
+const _kPrices = {'SMALL': 50.0, 'MEDIUM': 60.0, 'LARGE': 70.0};
 const _kBagPrice = 16.0;
 const _kServiceFee = 2.0;
 
@@ -662,9 +662,9 @@ class _Step2 extends StatelessWidget {
   final ValueChanged<int> onRemovePhoto;
 
   static const _bins = [
-    ('SMALL', 'Small', '≤120L', 40),
-    ('MEDIUM', 'Medium', '180L', 50),
-    ('LARGE', 'Large', '240L', 60),
+    ('SMALL', 'Small', '≤120L', 50),
+    ('MEDIUM', 'Medium', '180L', 60),
+    ('LARGE', 'Large', '240L', 70),
   ];
 
   Widget _negotiatedCard() => HCard(

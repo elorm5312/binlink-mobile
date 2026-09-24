@@ -193,7 +193,10 @@ class _TrackingScreenState extends State<TrackingScreen> {
             right: 0,
             bottom: 0,
             child: _BottomCard(
-              booking: _booking,
+              // Merge live negotiated fields from the provider's active booking.
+              booking: (prov.activeBooking != null && prov.activeBooking!['id'] == _booking['id'])
+                  ? {..._booking, ...prov.activeBooking!}
+                  : _booking,
               status: _status,
               collector: collector,
               etaMinutes: etaMinutes,
@@ -204,11 +207,62 @@ class _TrackingScreenState extends State<TrackingScreen> {
               isFavorite: collector != null && prov.isFavorite(collector['id'] as String? ?? ''),
               onTip: () => _showTipSheet(context, prov),
               onCancel: () => _confirmCancel(context, prov),
+              onConfirmNegotiation: (proposal) => _confirmNegotiation(context, prov, proposal),
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _confirmNegotiation(BuildContext context, HouseholdProvider prov, double proposal) async {
+    final ctrl = TextEditingController(text: proposal.toStringAsFixed(2));
+    final messenger = ScaffoldMessenger.of(context);
+    final bookingId = _booking['id'] as String?;
+    if (bookingId == null) return;
+    final result = await showModalBottomSheet<double>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: HouseholdColors.card,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (sheetCtx) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.viewInsetsOf(sheetCtx).bottom + 20),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Confirm agreed price', style: HouseholdType.title),
+          const SizedBox(height: 6),
+          Text('Your collector proposed GHS ${proposal.toStringAsFixed(2)}. Confirm or adjust the amount you both agreed on.',
+              style: HouseholdType.caption),
+          const SizedBox(height: 16),
+          TextField(
+            controller: ctrl,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            style: HouseholdType.title,
+            decoration: InputDecoration(
+              prefixText: 'GHS ',
+              filled: true,
+              fillColor: HouseholdColors.warmWhite,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+            ),
+          ),
+          const SizedBox(height: 16),
+          HButton(
+            label: 'Confirm price',
+            icon: 'rewards',
+            onPressed: () {
+              final v = double.tryParse(ctrl.text.trim());
+              if (v == null || v <= 0) return;
+              Navigator.pop(sheetCtx, v);
+            },
+          ),
+        ]),
+      ),
+    );
+    if (result == null) return;
+    final ok = await prov.confirmNegotiation(bookingId, amount: result);
+    if (!mounted) return;
+    messenger.showSnackBar(SnackBar(content: Text(
+        ok ? 'Price confirmed — GHS ${result.toStringAsFixed(2)}' : (prov.error ?? 'Could not confirm price'))));
   }
 
   Future<void> _launchCall(String? phone) async {
@@ -489,6 +543,7 @@ class _BottomCard extends StatelessWidget {
     required this.isFavorite,
     required this.onTip,
     required this.onCancel,
+    required this.onConfirmNegotiation,
     this.distanceKm,
   });
   final Map<String, dynamic> booking;
@@ -502,6 +557,7 @@ class _BottomCard extends StatelessWidget {
   final bool isFavorite;
   final VoidCallback onTip;
   final VoidCallback onCancel;
+  final void Function(double proposal) onConfirmNegotiation;
 
   bool get _canCancel => ['SEARCHING', 'ASSIGNED', 'ACCEPTED'].contains(status);
   bool get _isDone    => ['COMPLETED', 'COLLECTED', 'CANCELLED'].contains(status);
@@ -572,6 +628,35 @@ class _BottomCard extends StatelessWidget {
                   style: HouseholdType.number.copyWith(color: HouseholdColors.primary, fontSize: 16),
                 ),
               ]),
+            ],
+
+            // Negotiated pricing: collector proposed an amount — customer confirms it.
+            if (booking['pricingMode'] == 'NEGOTIATED' &&
+                booking['negotiatedStatus'] == 'PROPOSED' &&
+                (booking['negotiatedProposal'] as num?) != null) ...[
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: HouseholdColors.primary.withAlpha(16),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: HouseholdColors.primary.withAlpha(60)),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Collector proposed a price',
+                      style: HouseholdType.caption.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  Text('GHS ${(booking['negotiatedProposal'] as num).toStringAsFixed(2)}',
+                      style: HouseholdType.number.copyWith(color: HouseholdColors.primary, fontSize: 22, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 10),
+                  HButton(
+                    label: 'Confirm price',
+                    icon: 'rewards',
+                    onPressed: () => onConfirmNegotiation((booking['negotiatedProposal'] as num).toDouble()),
+                  ),
+                ]),
+              ),
             ],
             const SizedBox(height: 16),
 
