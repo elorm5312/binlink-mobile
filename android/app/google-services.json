@@ -14,11 +14,27 @@
       },
       "oauth_client": [
         {
+          "client_id": "781294511680-jkshsleo3tfhb9njoqu3vfanlij6p2oj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.binlink.collector",
+            "certificate_hash": "97ce3ae091fff679e03de9046737cad9976fd8b4"
+          }
+        },
+        {
           "client_id": "781294511680-jsjrfugd7njil6efu30avs7uo6h3rgd2.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.binlink.collector",
             "certificate_hash": "9cc2b745b7be7637b539fd79fa1fd502898719cd"
+          }
+        },
+        {
+          "client_id": "781294511680-pakpmjkk2rbae56o1v77a7ni06i6f3mm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.binlink.collector",
+            "certificate_hash": "84b2e05697a6d1a0778efd60060b54fafb5b5f19"
           }
         },
         {
@@ -50,6 +66,22 @@
         }
       },
       "oauth_client": [
+        {
+          "client_id": "781294511680-96u822qjl8ouinlo33dmrsu6t0t7039o.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.binlink.eco",
+            "certificate_hash": "97ce3ae091fff679e03de9046737cad9976fd8b4"
+          }
+        },
+        {
+          "client_id": "781294511680-qfvunlak2f50fj8g5o5f5tqi4rnkid46.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.binlink.eco",
+            "certificate_hash": "84b2e05697a6d1a0778efd60060b54fafb5b5f19"
+          }
+        },
         {
           "client_id": "781294511680-s352071dl5vfibk3runsm34q9rgd8d0l.apps.googleusercontent.com",
           "client_type": 1,

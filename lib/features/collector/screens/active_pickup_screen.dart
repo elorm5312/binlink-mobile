@@ -206,7 +206,7 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
       backgroundColor: CollectorColors.dark,
       body: Stack(children: [
         if (lat != null && lng != null)
-          Positioned.fill(child: BinLinkMap(initialPosition: ll.LatLng(lat, lng), pickupPosition: ll.LatLng(lat, lng), isNavigating: true))
+          Positioned.fill(child: BinLinkMap(initialPosition: ll.LatLng(lat, lng), pickupPosition: ll.LatLng(lat, lng), isNavigating: true, myLocationEnabled: true))
         else
           Positioned.fill(
             child: Center(
@@ -262,7 +262,7 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
               SvgPicture.asset(_assetForStatus(_status), height: 120),
               const SizedBox(height: 10),
               Text(_etaText, style: CollectorType.hero),
-              Text('Navigation, proof capture, weight and completion', style: CollectorType.caption),
+              Text('Navigation, proof capture, and completion', style: CollectorType.caption),
               const SizedBox(height: 12),
               // Who you're collecting from — with quick call + message.
               Container(

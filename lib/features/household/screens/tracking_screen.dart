@@ -177,7 +177,24 @@ class _TrackingScreenState extends State<TrackingScreen> {
             top: MediaQuery.paddingOf(context).top + 12,
             left: 14,
             right: 14,
-            child: _TopBar(status: _status, onBack: () => Navigator.maybePop(context)),
+            child: _TopBar(
+              status: _status,
+              onBack: () => Navigator.maybePop(context),
+              onRefresh: () {
+                prov.loadBookings();
+                final bookingId = _booking['id'] as String?;
+                if (bookingId != null) {
+                  prov.fetchBooking(bookingId).then((b) {
+                    if (b != null && mounted) {
+                      setState(() {
+                        _booking = b;
+                        _status = (b['status'] as String? ?? 'SEARCHING').toUpperCase();
+                      });
+                    }
+                  });
+                }
+              },
+            ),
           ),
 
           // ── SOS safety button ────────────────────────────────────────────────
@@ -444,9 +461,10 @@ class _TrackingScreenState extends State<TrackingScreen> {
 // ─── Top Bar ─────────────────────────────────────────────────────────────────
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.status, required this.onBack});
+  const _TopBar({required this.status, required this.onBack, required this.onRefresh});
   final String status;
   final VoidCallback onBack;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -467,6 +485,10 @@ class _TopBar extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
+            ),
+            GestureDetector(
+              onTap: onRefresh,
+              child: Icon(PhosphorIcons.arrowClockwise(), color: HouseholdColors.primary, size: 20),
             ),
           ]),
         ),
@@ -767,44 +789,122 @@ class _CollectorRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final name    = collector['fullName'] as String? ?? 'Your collector';
     final vehicle = collector['vehicleType'] as String?;
+    final plateNumber = collector['plateNumber'] as String?;
     final rating  = (collector['rating'] as num?)?.toDouble();
     final photo   = collector['profilePhoto'] as String?;
-    final hasPhone = (collector['phone'] as String?)?.isNotEmpty == true;
+    final phone   = collector['phone'] as String?;
+    final hasPhone = phone?.isNotEmpty == true;
     final away = _distanceLabel;
 
-    return Row(children: [
-      _Avatar(name: name, photoUrl: photo),
-      const SizedBox(width: 14),
-      Expanded(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(name, style: HouseholdType.section),
-          Row(children: [
-            if (rating != null) ...[
-              Icon(PhosphorIcons.star(PhosphorIconsStyle.fill), color: HouseholdColors.warning, size: 13),
-              const SizedBox(width: 4),
-              Text(rating.toStringAsFixed(1), style: HouseholdType.caption.copyWith(fontWeight: FontWeight.w700)),
-            ],
-            if (rating != null && vehicle != null) Text('  ·  ', style: HouseholdType.caption),
-            if (vehicle != null) Flexible(child: Text(vehicle, style: HouseholdType.caption, overflow: TextOverflow.ellipsis)),
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // Main collector info row
+      Row(children: [
+        _Avatar(name: name, photoUrl: photo),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(name, style: HouseholdType.section),
+            Row(children: [
+              if (rating != null) ...[
+                Icon(PhosphorIcons.star(PhosphorIconsStyle.fill), color: HouseholdColors.warning, size: 13),
+                const SizedBox(width: 4),
+                Text(rating.toStringAsFixed(1), style: HouseholdType.caption.copyWith(fontWeight: FontWeight.w700)),
+              ],
+              if (rating != null && vehicle != null) Text('  ·  ', style: HouseholdType.caption),
+              if (vehicle != null) Flexible(child: Text(vehicle, style: HouseholdType.caption, overflow: TextOverflow.ellipsis)),
+            ]),
+            if (away != null)
+              Text(away, style: HouseholdType.caption.copyWith(color: HouseholdColors.primary, fontWeight: FontWeight.w700)),
           ]),
-          if (away != null)
-            Text(away, style: HouseholdType.caption.copyWith(color: HouseholdColors.primary, fontWeight: FontWeight.w700)),
-        ]),
-      ),
-      if (onFavorite != null) ...[
-        _PillBtn(
-          icon: isFavorite
-              ? PhosphorIcons.heart(PhosphorIconsStyle.fill)
-              : PhosphorIcons.heart(),
-          onTap: onFavorite!,
-          color: HouseholdColors.danger,
         ),
-        const SizedBox(width: 8),
+        if (onFavorite != null) ...[
+          _PillBtn(
+            icon: isFavorite
+                ? PhosphorIcons.heart(PhosphorIconsStyle.fill)
+                : PhosphorIcons.heart(),
+            onTap: onFavorite!,
+            color: HouseholdColors.danger,
+          ),
+          const SizedBox(width: 8),
+        ],
+        _PillBtn(icon: PhosphorIcons.chatCircleDots(), onTap: onMessage, color: HouseholdColors.primary),
+        if (hasPhone) const SizedBox(width: 8),
+        if (hasPhone)
+          _PillBtn(icon: PhosphorIcons.phone(), onTap: onCall, color: HouseholdColors.ecoGreen),
+      ]),
+
+      // Safety info: Phone number and plate number
+      if (hasPhone || plateNumber != null) ...[
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: HouseholdColors.primary.withAlpha(12),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: HouseholdColors.primary.withAlpha(40)),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Icon(PhosphorIcons.shieldCheck(PhosphorIconsStyle.fill), size: 14, color: HouseholdColors.primary),
+              const SizedBox(width: 6),
+              Text('Safety Info', style: HouseholdType.caption.copyWith(color: HouseholdColors.primary, fontWeight: FontWeight.w700)),
+            ]),
+            const SizedBox(height: 8),
+            Row(children: [
+              // Phone number with tap to call
+              if (hasPhone) ...[
+                Expanded(
+                  child: GestureDetector(
+                    onTap: onCall,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: HouseholdColors.ecoGreen.withAlpha(20),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: HouseholdColors.ecoGreen.withAlpha(60)),
+                      ),
+                      child: Row(children: [
+                        Icon(PhosphorIcons.phone(PhosphorIconsStyle.fill), size: 16, color: HouseholdColors.ecoGreen),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('Tap to call', style: HouseholdType.caption.copyWith(fontSize: 10, color: HouseholdColors.gray)),
+                            Text(phone!, style: HouseholdType.caption.copyWith(fontWeight: FontWeight.w700, color: HouseholdColors.charcoal)),
+                          ]),
+                        ),
+                      ]),
+                    ),
+                  ),
+                ),
+              ],
+              if (hasPhone && plateNumber != null) const SizedBox(width: 10),
+              // Plate number
+              if (plateNumber != null) ...[
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: HouseholdColors.charcoal.withAlpha(10),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: HouseholdColors.border),
+                    ),
+                    child: Row(children: [
+                      Icon(PhosphorIcons.car(PhosphorIconsStyle.fill), size: 16, color: HouseholdColors.charcoal),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('Plate Number', style: HouseholdType.caption.copyWith(fontSize: 10, color: HouseholdColors.gray)),
+                          Text(plateNumber, style: HouseholdType.caption.copyWith(fontWeight: FontWeight.w800, color: HouseholdColors.charcoal, letterSpacing: 1)),
+                        ]),
+                      ),
+                    ]),
+                  ),
+                ),
+              ],
+            ]),
+          ]),
+        ),
       ],
-      _PillBtn(icon: PhosphorIcons.chatCircleDots(), onTap: onMessage, color: HouseholdColors.primary),
-      if (hasPhone) const SizedBox(width: 8),
-      if (hasPhone)
-        _PillBtn(icon: PhosphorIcons.phone(), onTap: onCall, color: HouseholdColors.ecoGreen),
     ]);
   }
 }

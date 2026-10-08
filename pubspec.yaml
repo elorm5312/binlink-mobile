@@ -124,6 +124,7 @@ flutter:
     - assets/collector_assets/avatars/
     - assets/collector_assets/lottie/
     - assets/collector_assets/workflow/
+    - assets/shared/lottie/
 
   # Fonts bundled locally so the app never fetches them over the network at
   # runtime (google_fonts default), which stalled first paint on slow networks.

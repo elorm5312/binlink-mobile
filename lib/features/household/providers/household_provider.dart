@@ -241,6 +241,7 @@ class HouseholdProvider extends ChangeNotifier {
     String? promoCode,
     String? pricingMode,
     List<String>? bulkyPhotos,
+    double? negotiatedAmount,
   }) async {
     _setLoading(true);
     conflictBookingId = null;
@@ -262,6 +263,7 @@ class HouseholdProvider extends ChangeNotifier {
         if (promoCode != null && promoCode.isNotEmpty) 'promoCode': promoCode,
         if (pricingMode != null) 'pricingMode': pricingMode,
         if (bulkyPhotos != null && bulkyPhotos.isNotEmpty) 'bulkyPhotos': bulkyPhotos,
+        if (negotiatedAmount != null && negotiatedAmount > 0) 'negotiatedAmount': negotiatedAmount,
       });
       final booking = Map<String, dynamic>.from(res.data['data'] as Map);
       _bookings.insert(0, booking);

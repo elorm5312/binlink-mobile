@@ -126,7 +126,31 @@ class _IncomingRequestOverlayState extends State<IncomingRequestOverlay>
               Text(widget.request['pickupAddress'] as String? ?? 'Pickup location nearby',
                   textAlign: TextAlign.center,
                   style: CollectorType.body.copyWith(color: const Color(0xFFC8D0DA))),
-              const SizedBox(height: 6),
+              const SizedBox(height: 10),
+              // Show negotiated price prominently if set by the customer
+              if (widget.request['pricingMode'] == 'NEGOTIATED' &&
+                  (widget.request['negotiatedAmount'] as num?) != null &&
+                  (widget.request['negotiatedAmount'] as num) > 0) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: CollectorColors.green.withAlpha(30),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: CollectorColors.green.withAlpha(100)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.handshake_outlined, color: CollectorColors.green, size: 20),
+                    const SizedBox(width: 10),
+                    Text('Agreed price: GHS ${(widget.request['negotiatedAmount'] as num).toStringAsFixed(2)}',
+                        style: CollectorType.title.copyWith(color: CollectorColors.green)),
+                  ]),
+                ),
+                const SizedBox(height: 8),
+              ] else if (widget.request['totalAmount'] != null) ...[
+                Text('GHS ${widget.request['totalAmount']}',
+                    style: CollectorType.title.copyWith(color: CollectorColors.green)),
+                const SizedBox(height: 8),
+              ],
               Text('Auto reject in $_remaining s',
                   style: CollectorType.caption.copyWith(color: CollectorColors.warning)),
               const Spacer(),

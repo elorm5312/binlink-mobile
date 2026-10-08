@@ -6,7 +6,6 @@ import datetime
 def run_cmd(cmd, cwd=None):
     res = subprocess.run(cmd, shell=True, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     return res.stdout.strip()
-
 def main():
     root_dir = '/home/zero/Desktop/binlink_eco.'
     mobile_dir = os.path.join(root_dir, 'mobile')

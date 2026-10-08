@@ -64,6 +64,14 @@ class _HomeTabState extends State<HomeTab> {
               const SizedBox(width: 12),
               Expanded(child: Text(locating ? 'Locating you…' : 'Where should we collect?', style: HouseholdType.section)),
               GestureDetector(
+                onTap: () {
+                  provider.loadBookings();
+                  provider.loadOnlineCollectors();
+                },
+                child: Icon(PhosphorIcons.arrowClockwise(), color: HouseholdColors.primary),
+              ),
+              const SizedBox(width: 14),
+              GestureDetector(
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MessagesScreen())),
                 child: Icon(PhosphorIcons.chatCircleDots(), color: HouseholdColors.charcoal),
               ),
@@ -146,11 +154,14 @@ class _BookingPanel extends StatelessWidget {
 
       final isArriving = ['ASSIGNED', 'ACCEPTED', 'EN_ROUTE', 'ON_THE_WAY', 'ARRIVED', 'COLLECTING'].contains(status);
       final isComplete = ['COMPLETED', 'COLLECTED'].contains(status);
-      final asset = isComplete ? HouseholdAssets.complete : HouseholdAssets.arriving;
-      final title = isComplete ? 'Pickup complete' : isArriving ? 'Collector arriving' : status.replaceAll('_', ' ');
-      final copy = isComplete
-          ? 'Collection done. Your receipt and impact record are ready.'
-          : active!['pickupAddress'] as String? ?? 'Pickup in progress';
+      final isCancelled = status == 'CANCELLED';
+      final asset = isCancelled ? HouseholdAssets.networkError : (isComplete ? HouseholdAssets.complete : HouseholdAssets.arriving);
+      final title = isCancelled ? 'Pickup cancelled' : (isComplete ? 'Pickup complete' : isArriving ? 'Collector arriving' : status.replaceAll('_', ' '));
+      final copy = isCancelled
+          ? 'This pickup was cancelled. Book a new one to continue.'
+          : (isComplete
+              ? 'Collection done. Your receipt and impact record are ready.'
+              : active!['pickupAddress'] as String? ?? 'Pickup in progress');
       return HCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
           Row(children: [
@@ -159,13 +170,15 @@ class _BookingPanel extends StatelessWidget {
                 : Image.asset(asset, height: 72, width: 88, fit: BoxFit.contain),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: HouseholdType.section),
+              Text(title, style: HouseholdType.section.copyWith(color: isCancelled ? HouseholdColors.danger : null)),
               const SizedBox(height: 2),
               Text(copy, maxLines: 2, overflow: TextOverflow.ellipsis, style: HouseholdType.caption),
             ])),
           ]),
           const SizedBox(height: 14),
-          if (!isComplete)
+          if (isCancelled)
+            HButton(label: 'Book new pickup', icon: 'pickup', onPressed: onBookNow)
+          else if (!isComplete)
             HButton(label: 'Track pickup', icon: 'tracking', onPressed: onTrack)
           else
             HButton(label: 'View history', icon: 'history', secondary: true, onPressed: onHistory),

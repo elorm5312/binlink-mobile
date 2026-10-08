@@ -50,8 +50,10 @@ class _BookScreenState extends State<BookScreen> {
   String _binSize = 'MEDIUM';
   int _extraBags = 0;
   // Household chose to negotiate instead of fixed bin pricing (loose refuse,
-  // over-heaped bins, rubbish lying around). Price is entered at payment.
+  // over-heaped bins, rubbish lying around). Price is entered here by the user.
   bool _negotiate = false;
+  final _negotiatedPriceCtrl = TextEditingController();
+  double? _negotiatedPrice;
 
   // Step 2 — bulky items (photos so the collector can see the load)
   final List<XFile> _bulkyPhotos = [];
@@ -102,6 +104,7 @@ class _BookScreenState extends State<BookScreen> {
     _notesCtrl.dispose();
     _promoCtrl.dispose();
     _bulkyDescCtrl.dispose();
+    _negotiatedPriceCtrl.dispose();
     super.dispose();
   }
 
@@ -168,7 +171,10 @@ class _BookScreenState extends State<BookScreen> {
 
   bool get _canNext {
     switch (_step) {
-      case 1: return !_isBulky || _bulkyPhotos.isNotEmpty;
+      case 1:
+        // If negotiate is selected, require a price to be entered
+        if (_negotiate && (_negotiatedPrice == null || _negotiatedPrice! <= 0)) return false;
+        return !_isBulky || _bulkyPhotos.isNotEmpty;
       case 2: return _isImmediate || _scheduledDate != null;
       case 3: return _addrCtrl.text.trim().isNotEmpty;
       default: return true;
@@ -249,6 +255,7 @@ class _BookScreenState extends State<BookScreen> {
       promoCode: (_isFixed && !_negotiate) ? _promoCode : null,
       pricingMode: (_isFixed && !_negotiate) ? null : 'NEGOTIATED',
       bulkyPhotos: photoUrls,
+      negotiatedAmount: _negotiate ? _negotiatedPrice : null,
     );
     if (!mounted) return;
     setState(() => _loading = false);
@@ -378,9 +385,14 @@ class _BookScreenState extends State<BookScreen> {
                   isNegotiated: _negotiate,
                   bulkyPhotos: _bulkyPhotos,
                   bulkyDescCtrl: _bulkyDescCtrl,
+                  negotiatedPriceCtrl: _negotiatedPriceCtrl,
                   onBin: (v) => setState(() => _binSize = v),
                   onBags: (v) => setState(() => _extraBags = v),
-                  onNegotiate: (v) => setState(() => _negotiate = v),
+                  onNegotiate: (v) => setState(() {
+                    _negotiate = v;
+                    if (!v) _negotiatedPriceCtrl.clear();
+                  }),
+                  onNegotiatedPriceChanged: (v) => setState(() => _negotiatedPrice = v),
                   onAddPhoto: _pickBulkyPhoto,
                   onRemovePhoto: (i) => setState(() => _bulkyPhotos.removeAt(i)),
                 ),
@@ -643,9 +655,11 @@ class _Step2 extends StatelessWidget {
     required this.isNegotiated,
     required this.bulkyPhotos,
     required this.bulkyDescCtrl,
+    required this.negotiatedPriceCtrl,
     required this.onBin,
     required this.onBags,
     required this.onNegotiate,
+    required this.onNegotiatedPriceChanged,
     required this.onAddPhoto,
     required this.onRemovePhoto,
   });
@@ -655,9 +669,11 @@ class _Step2 extends StatelessWidget {
   final bool isNegotiated;
   final List<XFile> bulkyPhotos;
   final TextEditingController bulkyDescCtrl;
+  final TextEditingController negotiatedPriceCtrl;
   final ValueChanged<String> onBin;
   final ValueChanged<int> onBags;
   final ValueChanged<bool> onNegotiate;
+  final ValueChanged<double?> onNegotiatedPriceChanged;
   final ValueChanged<ImageSource> onAddPhoto;
   final ValueChanged<int> onRemovePhoto;
 
@@ -829,63 +845,107 @@ class _Step2 extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('Volume & Extras', style: HouseholdType.title),
         const SizedBox(height: 6),
-        Text('Choose your bin size and any additional bags.', style: HouseholdType.caption),
+        Text(isNegotiated
+            ? 'Enter the price you agreed with your collector.'
+            : 'Choose your bin size and any additional bags.',
+            style: HouseholdType.caption),
         const SizedBox(height: 20),
-        Text('Bin size', style: HouseholdType.section),
-        const SizedBox(height: 12),
-        Row(
-          children: _bins.map((b) {
-            final sel = binSize == b.$1;
-            return Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(right: b.$1 == 'LARGE' ? 0 : 10),
-                child: GestureDetector(
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    onBin(b.$1);
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(
-                      color: sel ? HouseholdColors.primary : HouseholdColors.card,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: sel ? HouseholdColors.primary : HouseholdColors.border),
-                      boxShadow: [BoxShadow(color: HouseholdColors.forest.withAlpha(12), blurRadius: 14, offset: const Offset(0, 5))],
+
+        // Show bin sizes only when NOT negotiating
+        if (!isNegotiated) ...[
+          Text('Bin size', style: HouseholdType.section),
+          const SizedBox(height: 12),
+          Row(
+            children: _bins.map((b) {
+              final sel = binSize == b.$1;
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(right: b.$1 == 'LARGE' ? 0 : 10),
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      onBin(b.$1);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        color: sel ? HouseholdColors.primary : HouseholdColors.card,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: sel ? HouseholdColors.primary : HouseholdColors.border),
+                        boxShadow: [BoxShadow(color: HouseholdColors.forest.withAlpha(12), blurRadius: 14, offset: const Offset(0, 5))],
+                      ),
+                      child: Column(children: [
+                        Icon(PhosphorIcons.trashSimple(), size: 26, color: sel ? Colors.white : HouseholdColors.primary),
+                        const SizedBox(height: 8),
+                        Text(b.$2, style: HouseholdType.section.copyWith(color: sel ? Colors.white : HouseholdColors.charcoal, fontSize: 14)),
+                        const SizedBox(height: 2),
+                        Text(b.$3, style: HouseholdType.caption.copyWith(color: sel ? Colors.white.withAlpha(180) : HouseholdColors.gray)),
+                        const SizedBox(height: 6),
+                        Text('GHS ${b.$4}', style: HouseholdType.number.copyWith(color: sel ? Colors.white : HouseholdColors.primary, fontSize: 14)),
+                      ]),
                     ),
-                    child: Column(children: [
-                      Icon(PhosphorIcons.trashSimple(), size: 26, color: sel ? Colors.white : HouseholdColors.primary),
-                      const SizedBox(height: 8),
-                      Text(b.$2, style: HouseholdType.section.copyWith(color: sel ? Colors.white : HouseholdColors.charcoal, fontSize: 14)),
-                      const SizedBox(height: 2),
-                      Text(b.$3, style: HouseholdType.caption.copyWith(color: sel ? Colors.white.withAlpha(180) : HouseholdColors.gray)),
-                      const SizedBox(height: 6),
-                      Text('GHS ${b.$4}', style: HouseholdType.number.copyWith(color: sel ? Colors.white : HouseholdColors.primary, fontSize: 14)),
-                    ]),
                   ),
                 ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 24),
+          Text('Extra bags', style: HouseholdType.section),
+          const SizedBox(height: 4),
+          Text('GHS 6.00 each — for overflow beyond your bin.', style: HouseholdType.caption),
+          const SizedBox(height: 12),
+          HCard(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            child: Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Extra bags', style: HouseholdType.section),
+                  Text(extraBags == 0 ? 'None added' : '+GHS ${(extraBags * 6).toStringAsFixed(2)}', style: HouseholdType.caption),
+                ]),
               ),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 24),
-        Text('Extra bags', style: HouseholdType.section),
-        const SizedBox(height: 4),
-        Text('GHS 6.00 each — for overflow beyond your bin.', style: HouseholdType.caption),
-        const SizedBox(height: 12),
-        HCard(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-          child: Row(children: [
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Extra bags', style: HouseholdType.section),
-                Text(extraBags == 0 ? 'None added' : '+GHS ${(extraBags * 6).toStringAsFixed(2)}', style: HouseholdType.caption),
+              _Counter(value: extraBags, min: 0, max: 10, onChanged: onBags),
+            ]),
+          ),
+          const SizedBox(height: 24),
+        ],
+
+        // Negotiate price input — shown when negotiate is selected
+        if (isNegotiated) ...[
+          HCard(
+            color: HouseholdColors.primary.withAlpha(16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Icon(PhosphorIcons.handshake(), color: HouseholdColors.primary, size: 22),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Enter agreed price', style: HouseholdType.section.copyWith(color: HouseholdColors.primary))),
               ]),
-            ),
-            _Counter(value: extraBags, min: 0, max: 10, onChanged: onBags),
-          ]),
-        ),
-        const SizedBox(height: 24),
+              const SizedBox(height: 8),
+              Text('Enter the amount you agreed with your collector. This will be shown to them when they receive your request.',
+                  style: HouseholdType.caption),
+              const SizedBox(height: 16),
+              TextField(
+                controller: negotiatedPriceCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: HouseholdType.title.copyWith(fontSize: 28),
+                onChanged: (v) => onNegotiatedPriceChanged(double.tryParse(v)),
+                decoration: InputDecoration(
+                  prefixText: 'GHS ',
+                  prefixStyle: HouseholdType.title.copyWith(fontSize: 28, color: HouseholdColors.primary),
+                  hintText: '0.00',
+                  filled: true,
+                  fillColor: HouseholdColors.card,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: HouseholdColors.primary)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: HouseholdColors.primary)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: HouseholdColors.primary, width: 2)),
+                ),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 24),
+        ],
+
         // Selectable negotiate option — for waste that doesn't fit the bins.
         GestureDetector(
           onTap: () {
@@ -909,7 +969,7 @@ class _Step2 extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  Expanded(child: Text('Prefer to negotiate?',
+                  Expanded(child: Text(isNegotiated ? 'Negotiated price' : 'Prefer to negotiate?',
                       style: HouseholdType.section.copyWith(
                           color: isNegotiated ? HouseholdColors.primary : HouseholdColors.charcoal))),
                   Icon(isNegotiated ? PhosphorIcons.checkCircle(PhosphorIconsStyle.fill) : PhosphorIcons.circle(),
@@ -917,16 +977,12 @@ class _Step2 extends StatelessWidget {
                 ]),
                 const SizedBox(height: 4),
                 Text(
-                  'For refuse not in bins, over-heaped bins, or rubbish just lying around. '
-                  'Your collector looks at the load and states a price on arrival — you enter '
-                  'that as the amount to pay on the payment screen.',
+                  isNegotiated
+                      ? 'Tap to switch back to fixed bin pricing.'
+                      : 'For refuse not in bins, over-heaped bins, or rubbish just lying around. '
+                        'Agree a price with your collector first, then enter it here.',
                   style: HouseholdType.caption,
                 ),
-                if (isNegotiated) ...[
-                  const SizedBox(height: 8),
-                  Text('Selected — the fixed bin price above won\'t apply.',
-                      style: HouseholdType.caption.copyWith(color: HouseholdColors.primary, fontWeight: FontWeight.w700)),
-                ],
               ])),
             ]),
           ),
