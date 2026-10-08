@@ -789,7 +789,7 @@ class _CollectorRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final name    = collector['fullName'] as String? ?? 'Your collector';
     final vehicle = collector['vehicleType'] as String?;
-    final plateNumber = collector['plateNumber'] as String?;
+    final plateNumber = collector['vehiclePlate'] as String?;
     final rating  = (collector['rating'] as num?)?.toDouble();
     final photo   = collector['profilePhoto'] as String?;
     final phone   = collector['phone'] as String?;
