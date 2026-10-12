@@ -6,6 +6,7 @@ import '../../../core/network/socket_service.dart';
 import '../../../core/gps/kalman_filter.dart';
 import '../../../shared/models/app_notification.dart';
 import '../../../shared/models/reward_models.dart';
+import 'package:binlink_mobile/core/utils/json_num.dart';
 
 // Zone event type constants
 const _kZoneMove    = 'move';
@@ -60,14 +61,14 @@ class HouseholdProvider extends ChangeNotifier {
 
   bool get loadingWallet => _loadingWallet;
   String? get walletError => _walletError;
-  double get walletBalance => ((_walletSummary?['balance'] as num?) ?? 0).toDouble();
+  double get walletBalance => jsonDouble(_walletSummary?['balance']) ?? 0;
   List<Map<String, dynamic>> get walletCredits => List<Map<String, dynamic>>.from(_walletSummary?['credits'] as List? ?? []);
   List<Map<String, dynamic>> get walletDebits => List<Map<String, dynamic>>.from(_walletSummary?['debits'] as List? ?? []);
   List<Map<String, dynamic>> get pendingTransactions => List<Map<String, dynamic>>.from(_walletSummary?['pendingTransactions'] as List? ?? []);
   List<Map<String, dynamic>> get refundTransactions => List<Map<String, dynamic>>.from(_walletSummary?['refunds'] as List? ?? []);
   List<Map<String, dynamic>> get walletTransactions => List<Map<String, dynamic>>.from(_walletSummary?['transactions'] as List? ?? []);
   int get ecoPoints => ((_walletSummary?['rewards']?['ecoPoints'] as num?) ?? 0).toInt();
-  double get carbonSavedKg => ((_walletSummary?['rewards']?['carbonSavedKg'] as num?) ?? 0).toDouble();
+  double get carbonSavedKg => jsonDouble(_walletSummary?['rewards']?['carbonSavedKg']) ?? 0;
   List<RewardLedger> get rewardLedger => (List<Map<String, dynamic>>.from(_walletSummary?['rewards']?['rewardLedger'] as List? ?? []))
       .map(RewardLedger.fromJson)
       .toList();
@@ -319,7 +320,7 @@ class HouseholdProvider extends ChangeNotifier {
 
   // ── Surge pricing ─────────────────────────────────────────────────────────
   Map<String, dynamic>? _surge;
-  double get surgeMultiplier => ((_surge?['multiplier'] as num?) ?? 1.0).toDouble();
+  double get surgeMultiplier => jsonDouble(_surge?['multiplier']) ?? 1.0;
   String get surgeLevel => (_surge?['level'] as String?) ?? 'NORMAL';
   String get surgeLabel => (_surge?['label'] as String?) ?? 'Normal demand';
   bool get isSurging => surgeMultiplier > 1.0;
@@ -348,7 +349,7 @@ class HouseholdProvider extends ChangeNotifier {
     } on DioException catch (e) {
       final data = e.response?.data;
       if (data is Map && data['requiresTopUp'] == true) {
-        tipShortfall = ((data['shortfall'] as num?) ?? 0).toDouble();
+        tipShortfall = jsonDouble(data['shortfall']) ?? 0;
       }
       return (data is Map ? data['error'] as String? : null) ?? 'Could not send tip';
     } catch (_) {
@@ -590,8 +591,8 @@ class HouseholdProvider extends ChangeNotifier {
     SocketService.on('collector:location', (data) {
       try {
         final d = data as Map<String, dynamic>;
-        final rawLat = (d['lat'] as num?)?.toDouble();
-        final rawLng = (d['lng'] as num?)?.toDouble();
+        final rawLat = jsonDouble(d['lat']);
+        final rawLng = jsonDouble(d['lng']);
         if (rawLat == null || rawLng == null) return;
         // Apply Kalman filter — rejects teleport glitches, smooths Ghana 3G noise
         final smooth = _gpsSmoother.process(rawLat, rawLng);
@@ -656,8 +657,8 @@ class HouseholdProvider extends ChangeNotifier {
     try {
       final d   = data as Map<String, dynamic>;
       final id  = d['collectorId'] as String;
-      final lat = (d['lat'] as num?)?.toDouble();
-      final lng = (d['lng'] as num?)?.toDouble();
+      final lat = jsonDouble(d['lat']);
+      final lng = jsonDouble(d['lng']);
       if (lat == null || lng == null) return;
 
       final idx = _onlineCollectors.indexWhere((c) => c['id'] == id);
@@ -677,7 +678,7 @@ class HouseholdProvider extends ChangeNotifier {
           'id':      id,
           'lastLat': lat,
           'lastLng': lng,
-          'bearing': (d['bearing'] as num?)?.toDouble() ?? 0.0,
+          'bearing': jsonDouble(d['bearing']) ?? 0.0,
         });
         if (added == null) return;
         _onlineCollectors.add(added);
@@ -695,8 +696,8 @@ class HouseholdProvider extends ChangeNotifier {
     try {
       final d   = data as Map<String, dynamic>;
       final id  = d['collectorId'] as String;
-      final lat = (d['lat'] as num?)?.toDouble();
-      final lng = (d['lng'] as num?)?.toDouble();
+      final lat = jsonDouble(d['lat']);
+      final lng = jsonDouble(d['lng']);
       // Without coordinates the marker would render at (0,0) in the ocean
       if (lat == null || lng == null) return;
       if (!_onlineCollectors.any((c) => c['id'] == id)) {
@@ -704,7 +705,7 @@ class HouseholdProvider extends ChangeNotifier {
           'id':      id,
           'lastLat': lat,
           'lastLng': lng,
-          'bearing': (d['bearing'] as num?)?.toDouble() ?? 0.0,
+          'bearing': jsonDouble(d['bearing']) ?? 0.0,
         });
         if (added == null) return;
         _onlineCollectors.add(added);
@@ -1038,7 +1039,7 @@ class HouseholdProvider extends ChangeNotifier {
       'id': id.toString(),
       'lastLat': lastLat,
       'lastLng': lastLng,
-      'bearing': (raw['bearing'] as num?)?.toDouble() ?? 0.0,
+      'bearing': jsonDouble(raw['bearing']) ?? 0.0,
     };
   }
 

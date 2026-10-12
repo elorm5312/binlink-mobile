@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/design_system/household_design_system.dart';
 import '../../../core/services/phone_launcher.dart';
+import '../../../core/utils/json_num.dart';
 import '../../../core/routing/routing_service.dart';
 import '../../../shared/components/binlink_map.dart';
 import '../../../shared/screens/chat_screen.dart';
@@ -93,8 +94,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
       });
     }
 
-    final pickupLat = (_booking['pickupLat'] as num?)?.toDouble();
-    final pickupLng = (_booking['pickupLng'] as num?)?.toDouble();
+    final pickupLat = jsonDouble(_booking['pickupLat']);
+    final pickupLng = jsonDouble(_booking['pickupLng']);
     final pickupPos = pickupLat != null && pickupLng != null ? ll.LatLng(pickupLat, pickupLng) : null;
 
     final collectorLat = prov.collectorLat;
@@ -376,8 +377,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
 
     final collectorLat = prov.collectorLat;
     final collectorLng = prov.collectorLng;
-    final lat = collectorLat ?? (_booking['pickupLat'] as num?)?.toDouble();
-    final lng = collectorLng ?? (_booking['pickupLng'] as num?)?.toDouble();
+    final lat = collectorLat ?? jsonDouble(_booking['pickupLat']);
+    final lng = collectorLng ?? jsonDouble(_booking['pickupLng']);
     if (lat == null || lng == null) return;
 
     final ok = await prov.raiseSos(lat: lat, lng: lng, bookingId: _booking['id'] as String?);
@@ -663,7 +664,7 @@ class _BottomCard extends StatelessWidget {
             // Negotiated pricing: collector proposed an amount — customer confirms it.
             if (booking['pricingMode'] == 'NEGOTIATED' &&
                 booking['negotiatedStatus'] == 'PROPOSED' &&
-                (booking['negotiatedProposal'] as num?) != null) ...[
+                jsonDouble(booking['negotiatedProposal']) != null) ...[
               const SizedBox(height: 14),
               Container(
                 width: double.infinity,
@@ -677,13 +678,13 @@ class _BottomCard extends StatelessWidget {
                   Text('Collector proposed a price',
                       style: HouseholdType.caption.copyWith(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 4),
-                  Text('GHS ${(booking['negotiatedProposal'] as num).toStringAsFixed(2)}',
+                  Text('GHS ${jsonDouble(booking['negotiatedProposal'])!.toStringAsFixed(2)}',
                       style: HouseholdType.number.copyWith(color: HouseholdColors.primary, fontSize: 22, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 10),
                   HButton(
                     label: 'Confirm price',
                     icon: 'rewards',
-                    onPressed: () => onConfirmNegotiation((booking['negotiatedProposal'] as num).toDouble()),
+                    onPressed: () => onConfirmNegotiation(jsonDouble(booking['negotiatedProposal'])!),
                   ),
                 ]),
               ),
@@ -805,7 +806,7 @@ class _CollectorRow extends StatelessWidget {
     final name    = collector['fullName'] as String? ?? 'Your collector';
     final vehicle = collector['vehicleType'] as String?;
     final plateNumber = collector['vehiclePlate'] as String?;
-    final rating  = (collector['rating'] as num?)?.toDouble();
+    final rating  = jsonDouble(collector['rating']);
     final photo   = collector['profilePhoto'] as String?;
     final phone   = collector['phone'] as String?;
     final hasPhone = phone?.isNotEmpty == true;

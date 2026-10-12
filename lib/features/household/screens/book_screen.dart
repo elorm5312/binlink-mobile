@@ -14,6 +14,7 @@ import '../../../core/services/location_service.dart';
 import '../../../core/services/places_service.dart';
 import '../providers/household_provider.dart';
 import 'tracking_screen.dart';
+import 'package:binlink_mobile/core/utils/json_num.dart';
 
 const _kPrices = {'SMALL': 50.0, 'MEDIUM': 60.0, 'LARGE': 70.0};
 const _kBagPrice = 6.0;
@@ -77,7 +78,7 @@ class _BookScreenState extends State<BookScreen> {
   bool _locLoading = false;
 
   // Step 5
-  String _payment = 'CASH';
+  String _payment = 'MTN_MOMO';
   final _promoCtrl = TextEditingController();
   double _promoDiscount = 0;
   String? _promoCode;
@@ -151,7 +152,7 @@ class _BookScreenState extends State<BookScreen> {
     setState(() {
       _promoChecking = false;
       if (result != null) {
-        _promoDiscount = ((result['discount'] as num?) ?? 0).toDouble();
+        _promoDiscount = jsonDouble(result['discount']) ?? 0;
         _promoCode = code.toUpperCase();
       } else {
         _promoDiscount = 0;
@@ -244,7 +245,7 @@ class _BookScreenState extends State<BookScreen> {
       pickupAddress: addr,
       pickupLat: _lat!,
       pickupLng: _lng!,
-      paymentMethod: _isFixed ? _payment : 'CASH',
+      paymentMethod: _payment,
       wasteCategory: _category,
       timePreference: _isImmediate ? null : _timePref,
       addressNotes: notes.isNotEmpty ? notes : null,
@@ -1429,7 +1430,6 @@ class _Step5 extends StatelessWidget {
         Text('Payment method', style: HouseholdType.section),
         const SizedBox(height: 12),
         for (final m in [
-          ('CASH', 'Cash on pickup', PhosphorIcons.money()),
           ('MTN_MOMO', 'MTN MoMo', PhosphorIcons.deviceMobile()),
           ('TELECEL', 'Telecel Cash', PhosphorIcons.deviceMobile()),
           ('AIRTELTIGO', 'AirtelTigo', PhosphorIcons.deviceMobile()),
@@ -1459,18 +1459,16 @@ class _Step5 extends StatelessWidget {
               ),
             ),
           ),
-        if (payment != 'CASH') ...[
-          const SizedBox(height: 4),
-          HCard(
-            color: HouseholdColors.infoTint,
-            padding: const EdgeInsets.all(14),
-            child: Row(children: [
-              Icon(PhosphorIcons.info(), color: HouseholdColors.primary, size: 18),
-              const SizedBox(width: 10),
-              Expanded(child: Text('You\'ll receive a mobile money prompt to approve the payment after confirming.', style: HouseholdType.caption.copyWith(color: HouseholdColors.charcoal))),
-            ]),
-          ),
-        ],
+        const SizedBox(height: 4),
+        HCard(
+          color: HouseholdColors.infoTint,
+          padding: const EdgeInsets.all(14),
+          child: Row(children: [
+            Icon(PhosphorIcons.info(), color: HouseholdColors.primary, size: 18),
+            const SizedBox(width: 10),
+            Expanded(child: Text('You pay after the pickup: once your collector marks it completed, tap "Make payment" and approve the mobile money prompt.', style: HouseholdType.caption.copyWith(color: HouseholdColors.charcoal))),
+          ]),
+        ),
         ],
         if (error != null) ...[
           const SizedBox(height: 12),

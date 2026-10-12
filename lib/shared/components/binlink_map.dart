@@ -11,6 +11,7 @@ import '../../core/config/env.dart';
 import '../../core/config/app_flavor.dart';
 import '../../core/design_system/collector_design_system.dart';
 import '../../core/design_system/household_design_system.dart';
+import 'package:binlink_mobile/core/utils/json_num.dart';
 
 class MapStyleResolver {
   MapStyleResolver._();
@@ -183,8 +184,8 @@ class BinLinkMapState extends State<BinLinkMap> {
     final pts = <ll.LatLng>[];
     if (widget.pickupPosition != null) pts.add(widget.pickupPosition!);
     for (final c in widget.collectors) {
-      final lat = (c['lastLat'] as num?)?.toDouble();
-      final lng = (c['lastLng'] as num?)?.toDouble();
+      final lat = jsonDouble(c['lastLat']);
+      final lng = jsonDouble(c['lastLng']);
       if (lat != null && lng != null) pts.add(ll.LatLng(lat, lng));
     }
     if (pts.length < 2) return;
@@ -252,8 +253,8 @@ class BinLinkMapState extends State<BinLinkMap> {
 
     final features = <Map<String, dynamic>>[];
     for (final c in widget.collectors) {
-      final lat = (c['lastLat'] as num?)?.toDouble();
-      final lng = (c['lastLng'] as num?)?.toDouble();
+      final lat = jsonDouble(c['lastLat']);
+      final lng = jsonDouble(c['lastLng']);
       if (lat == null || lng == null) continue;
       features.add({
         'type': 'Feature',
@@ -263,7 +264,7 @@ class BinLinkMapState extends State<BinLinkMap> {
         },
         'properties': {
           'id': c['id'],
-          'bearing': (c['bearing'] as num?)?.toDouble() ?? 0.0,
+          'bearing': jsonDouble(c['bearing']) ?? 0.0,
         },
       });
     }

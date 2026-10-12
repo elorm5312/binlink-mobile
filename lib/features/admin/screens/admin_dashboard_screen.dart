@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../core/design_system/household_design_system.dart';
 import '../../../shared/components/skeleton.dart';
 import '../../household/providers/household_provider.dart';
+import 'package:binlink_mobile/core/utils/json_num.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -194,7 +195,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           _Kpi(
                               label: 'Carbon savings',
                               value:
-                                  '${((analyticsSummary['carbonSavingsKg'] as num?) ?? 0).toStringAsFixed(0)} kg'),
+                                  '${(jsonDouble(analyticsSummary['carbonSavingsKg']) ?? 0).toStringAsFixed(0)} kg'),
                         ],
                       ),
                       const SizedBox(height: 20),
@@ -554,10 +555,10 @@ class _OpsMapPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final allPoints = [
-      ...collectors.map((c) => Offset((c['lastLng'] as num?)?.toDouble() ?? 0,
-          (c['lastLat'] as num?)?.toDouble() ?? 0)),
-      ...pickups.map((p) => Offset((p['pickupLng'] as num?)?.toDouble() ?? 0,
-          (p['pickupLat'] as num?)?.toDouble() ?? 0)),
+      ...collectors.map((c) => Offset(jsonDouble(c['lastLng']) ?? 0,
+          jsonDouble(c['lastLat']) ?? 0)),
+      ...pickups.map((p) => Offset(jsonDouble(p['pickupLng']) ?? 0,
+          jsonDouble(p['pickupLat']) ?? 0)),
     ].where((p) => p.dx != 0 || p.dy != 0).toList();
     if (allPoints.isEmpty) return;
 
@@ -586,8 +587,8 @@ class _OpsMapPainter extends CustomPainter {
     }
 
     for (final pickup in pickups) {
-      final point = mapPoint((pickup['pickupLng'] as num?)?.toDouble() ?? 0,
-          (pickup['pickupLat'] as num?)?.toDouble() ?? 0);
+      final point = mapPoint(jsonDouble(pickup['pickupLng']) ?? 0,
+          jsonDouble(pickup['pickupLat']) ?? 0);
       final status = pickup['status']?.toString() ?? 'SEARCHING';
       final color = switch (status) {
         'SEARCHING' => HouseholdColors.warning,
@@ -599,8 +600,8 @@ class _OpsMapPainter extends CustomPainter {
     }
 
     for (final collector in collectors) {
-      final point = mapPoint((collector['lastLng'] as num?)?.toDouble() ?? 0,
-          (collector['lastLat'] as num?)?.toDouble() ?? 0);
+      final point = mapPoint(jsonDouble(collector['lastLng']) ?? 0,
+          jsonDouble(collector['lastLat']) ?? 0);
       final isOnline = collector['isOnline'] == true;
       canvas.drawCircle(
           point,
@@ -943,7 +944,7 @@ class _PromoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final type = promo['discountType'] as String? ?? 'PERCENT';
-    final value = (promo['discountValue'] as num?)?.toDouble() ?? 0;
+    final value = jsonDouble(promo['discountValue']) ?? 0;
     final label = type == 'PERCENT' ? '${value.toStringAsFixed(0)}% off' : 'GHS ${value.toStringAsFixed(2)} off';
     final used = (promo['_count']?['redemptions'] as num?)?.toInt() ?? 0;
     final active = promo['isActive'] == true;

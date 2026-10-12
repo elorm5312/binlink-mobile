@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../../core/design_system/collector_design_system.dart';
 import '../providers/collector_provider.dart';
 import '../screens/active_pickup_screen.dart';
+import 'package:binlink_mobile/core/utils/json_num.dart';
 
 /// Full-screen takeover shown to an ONLINE collector the moment a job arrives —
 /// rendered at the shell level so it covers every tab AND the bottom nav. Plays
@@ -129,8 +130,7 @@ class _IncomingRequestOverlayState extends State<IncomingRequestOverlay>
               const SizedBox(height: 10),
               // Show negotiated price prominently if set by the customer
               if (widget.request['pricingMode'] == 'NEGOTIATED' &&
-                  (widget.request['negotiatedAmount'] as num?) != null &&
-                  (widget.request['negotiatedAmount'] as num) > 0) ...[
+                  (jsonDouble(widget.request['negotiatedAmount']) ?? 0) > 0) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   decoration: BoxDecoration(
@@ -141,7 +141,7 @@ class _IncomingRequestOverlayState extends State<IncomingRequestOverlay>
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     Icon(Icons.handshake_outlined, color: CollectorColors.green, size: 20),
                     const SizedBox(width: 10),
-                    Text('Agreed price: GHS ${(widget.request['negotiatedAmount'] as num).toStringAsFixed(2)}',
+                    Text('Agreed price: GHS ${jsonDouble(widget.request['negotiatedAmount'])!.toStringAsFixed(2)}',
                         style: CollectorType.title.copyWith(color: CollectorColors.green)),
                   ]),
                 ),

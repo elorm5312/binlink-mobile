@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../core/design_system/household_design_system.dart';
 import '../providers/household_provider.dart';
 import 'book_screen.dart';
+import 'package:binlink_mobile/core/utils/json_num.dart';
 
 /// Favorite collectors — saved preferred collectors the household can re-request.
 /// Tapping "Request pickup" opens the booking wizard with this collector set as
@@ -126,7 +127,7 @@ class _FavoriteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = collector['fullName'] as String? ?? 'Collector';
     final vehicle = collector['vehicleType'] as String?;
-    final rating = (collector['rating'] as num?)?.toDouble();
+    final rating = jsonDouble(collector['rating']);
     final online = collector['isOnline'] == true;
     final initials = name.trim().isEmpty
         ? '?'

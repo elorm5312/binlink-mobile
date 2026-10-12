@@ -1,3 +1,5 @@
+import 'package:binlink_mobile/core/utils/json_num.dart';
+
 class UserModel {
   final String id;
   final String? phone;
@@ -61,18 +63,18 @@ class UserModel {
       profilePhoto: json['profilePhoto'] as String?,
       status:       json['status'] as String? ?? 'ACTIVE',
       isOnline:     json['isOnline'] as bool? ?? false,
-      rating:       (json['rating'] as num?)?.toDouble() ?? 5.0,
-      totalEarned:  (json['totalEarned'] as num?)?.toDouble() ?? 0.0,
+      rating:       jsonDouble(json['rating']) ?? 5.0,
+      totalEarned:  jsonDouble(json['totalEarned']) ?? 0.0,
       totalPickups: json['totalPickups'] as int? ?? 0,
       vehicleType:      json['vehicleType'] as String?,
       vehiclePlate:     json['vehiclePlate'] as String?,
-      lastLat:          (json['lastLat'] as num?)?.toDouble(),
-      lastLng:          (json['lastLng'] as num?)?.toDouble(),
+      lastLat:          jsonDouble(json['lastLat']),
+      lastLng:          jsonDouble(json['lastLng']),
       memberSince:      json['createdAt'] as String?,
       ecoPoints:        json['ecoPoints'] as int? ?? 0,
-      totalKgRecycled:  (json['totalKgRecycled'] as num?)?.toDouble() ?? 0.0,
-      currentLoadKg:    (json['currentLoadKg'] as num?)?.toDouble() ?? 0.0,
-      maxCapacityKg:    (json['maxCapacityKg'] as num?)?.toDouble() ?? 500.0,
+      totalKgRecycled:  jsonDouble(json['totalKgRecycled']) ?? 0.0,
+      currentLoadKg:    jsonDouble(json['currentLoadKg']) ?? 0.0,
+      maxCapacityKg:    jsonDouble(json['maxCapacityKg']) ?? 500.0,
     );
   }
 

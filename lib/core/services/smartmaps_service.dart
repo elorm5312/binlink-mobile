@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../config/env.dart';
+import 'package:binlink_mobile/core/utils/json_num.dart';
 
 /// SmartMaps location intelligence layer.
 ///
@@ -129,8 +130,8 @@ class SmartMapsService {
       final props = feature['properties'] as Map<String, dynamic>? ?? {};
       final coords = (geom['coordinates'] as List?)?.cast<dynamic>();
       if (coords == null || coords.length < 2) return null;
-      final fLng = (coords[0] as num?)?.toDouble();
-      final fLat = (coords[1] as num?)?.toDouble();
+      final fLng = jsonDouble(coords[0]);
+      final fLat = jsonDouble(coords[1]);
       if (fLat == null || fLng == null) return null;
       final freeform = _buildAddress(props);
       return (address: freeform.isEmpty ? address : freeform, lat: fLat, lng: fLng);

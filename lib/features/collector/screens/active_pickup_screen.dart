@@ -12,6 +12,7 @@ import '../../../shared/components/binlink_map.dart';
 import '../../../shared/screens/chat_screen.dart';
 import '../providers/collector_provider.dart';
 import 'navigation_screen.dart';
+import 'package:binlink_mobile/core/utils/json_num.dart';
 
 class ActivePickupScreen extends StatefulWidget {
   const ActivePickupScreen({super.key, this.booking = const {}});
@@ -75,8 +76,8 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
 
   /// Opens external Google Maps turn-by-turn navigation to the pickup.
   Future<void> _launchNavigation() async {
-    final lat = (widget.booking['pickupLat'] as num?)?.toDouble();
-    final lng = (widget.booking['pickupLng'] as num?)?.toDouble();
+    final lat = jsonDouble(widget.booking['pickupLat']);
+    final lng = jsonDouble(widget.booking['pickupLng']);
     if (lat == null || lng == null) return;
     final ok = await MapsLauncher.navigateTo(lat, lng,
         label: widget.booking['pickupAddress'] as String?);
@@ -199,8 +200,8 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final lat = (widget.booking['pickupLat'] as num?)?.toDouble();
-    final lng = (widget.booking['pickupLng'] as num?)?.toDouble();
+    final lat = jsonDouble(widget.booking['pickupLat']);
+    final lng = jsonDouble(widget.booking['pickupLng']);
     final provider = context.read<CollectorProvider>();
     return Scaffold(
       backgroundColor: CollectorColors.dark,
@@ -233,8 +234,8 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
             ])),
             IconButton(
               onPressed: () {
-                final plat = (widget.booking['pickupLat'] as num?)?.toDouble();
-                final plng = (widget.booking['pickupLng'] as num?)?.toDouble();
+                final plat = jsonDouble(widget.booking['pickupLat']);
+                final plng = jsonDouble(widget.booking['pickupLng']);
                 if (plat == null || plng == null) return;
                 Navigator.push(context, MaterialPageRoute(builder: (_) => NavigationScreen(
                   destination: ll.LatLng(plat, plng),
@@ -344,8 +345,8 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
               if (_isNegotiated && (_status == 'ARRIVED' || _status == 'COLLECTING')) ...[
                 Builder(builder: (_) {
                   final st = widget.booking['negotiatedStatus'] as String?;
-                  final proposal = (widget.booking['negotiatedProposal'] as num?)?.toDouble();
-                  final agreed = (widget.booking['negotiatedAmount'] as num?)?.toDouble();
+                  final proposal = jsonDouble(widget.booking['negotiatedProposal']);
+                  final agreed = jsonDouble(widget.booking['negotiatedAmount']);
                   if (st == 'CONFIRMED' && agreed != null) {
                     return _negBanner('Customer confirmed GHS ${agreed.toStringAsFixed(2)}', CollectorColors.green);
                   }

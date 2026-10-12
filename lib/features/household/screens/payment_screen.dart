@@ -9,6 +9,7 @@ import '../../../core/design_system/household_design_system.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/receipt_service.dart';
 import '../../../core/storage/secure_storage.dart';
+import '../../../core/utils/json_num.dart';
 import '../providers/household_provider.dart';
 import 'tracking_screen.dart';
 
@@ -80,7 +81,7 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
         : widget.booking['totalAmount'];
     final bookingId = widget.booking['id'] as String?;
     final walletBalance = context.watch<HouseholdProvider>().walletBalance;
-    final amountValue = (amount as num?)?.toDouble() ?? double.tryParse('$amount') ?? 0;
+    final amountValue = jsonDouble(amount) ?? 0;
     // A negotiated pickup is payable once an amount has been entered.
     final negotiatedPending = isNegotiated && amountValue <= 0;
     return Scaffold(
@@ -114,7 +115,7 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
                 Text(
                   negotiatedPending
                       ? 'Enter the collector\'s price'
-                      : (amount == null ? 'Amount pending' : 'GHS $amount'),
+                      : (amount == null ? 'Amount pending' : 'GHS ${amountValue.toStringAsFixed(2)}'),
                   style: HouseholdType.hero,
                 ),
                 Text(widget.booking['pickupAddress'] as String? ?? 'Pickup payment', style: HouseholdType.caption),
@@ -129,7 +130,7 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
                   const SizedBox(width: 12),
                   Expanded(child: Text(
                     'This is a negotiated pickup. Once your collector states a price on arrival, '
-                    'tap “Negotiate price” below to enter that amount, then pay.',
+                    'tap “Enter agreed price” below to enter that amount, then pay.',
                     style: HouseholdType.body.copyWith(color: HouseholdColors.charcoal),
                   )),
                 ]),

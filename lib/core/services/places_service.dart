@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../config/env.dart';
 import 'smartmaps_service.dart';
+import 'package:binlink_mobile/core/utils/json_num.dart';
 
 class PlacePrediction {
   final String placeId;
@@ -125,8 +126,8 @@ class PlacesService {
           mainText:      mainText,
           secondaryText: secondary,
           fullText:      freeform.isEmpty ? query : freeform,
-          lat:           (pos['lat'] as num?)?.toDouble(),
-          lng:           (pos['lon'] as num?)?.toDouble(),
+          lat:           jsonDouble(pos['lat']),
+          lng:           jsonDouble(pos['lon']),
         );
       }).where((p) => p.lat != null && p.lat! != 0).toList();
     } catch (_) {

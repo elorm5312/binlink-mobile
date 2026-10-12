@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart' as ll;
@@ -12,6 +13,7 @@ import '../providers/household_provider.dart';
 import '../screens/book_screen.dart';
 import '../screens/payment_screen.dart';
 import '../screens/tracking_screen.dart';
+import 'package:binlink_mobile/core/utils/json_num.dart';
 
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key, required this.myPos, required this.onTabSwitch});
@@ -44,14 +46,20 @@ class _HomeTabState extends State<HomeTab> {
     final pos = widget.myPos ?? _fallbackCenter;
     final active = provider.activeBooking;
     final pickupMarker = _pickupMarkerFor(active, pos);
+    // iOS: keep only one native MapLibre view alive. When booking/tracking is
+    // pushed over home, a second map on top of this one left the screen blank.
+    final coveredOnIos = defaultTargetPlatform == TargetPlatform.iOS &&
+        !(ModalRoute.of(context)?.isCurrent ?? true);
     return Stack(
       children: [
         Positioned.fill(
-          child: BinLinkMap(
-            initialPosition: pos,
-            collectors: provider.onlineCollectors,
-            pickupPosition: pickupMarker,
-          ),
+          child: coveredOnIos
+              ? ColoredBox(color: HouseholdColors.sand)
+              : BinLinkMap(
+                  initialPosition: pos,
+                  collectors: provider.onlineCollectors,
+                  pickupPosition: pickupMarker,
+                ),
         ),
         Positioned(
           top: MediaQuery.paddingOf(context).top + 14,
@@ -108,8 +116,8 @@ class _HomeTabState extends State<HomeTab> {
 
   ll.LatLng? _pickupMarkerFor(Map<String, dynamic>? active, ll.LatLng userPos) {
     if (active == null) return null;
-    final lat = (active['pickupLat'] as num?)?.toDouble();
-    final lng = (active['pickupLng'] as num?)?.toDouble();
+    final lat = jsonDouble(active['pickupLat']);
+    final lng = jsonDouble(active['pickupLng']);
     if (lat == null || lng == null) return null;
     final distance = const ll.Distance().as(ll.LengthUnit.Meter, userPos, ll.LatLng(lat, lng));
     if (distance < 12) return null;

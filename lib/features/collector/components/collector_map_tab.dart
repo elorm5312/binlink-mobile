@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart' as ll;
@@ -14,6 +15,7 @@ import '../providers/collector_provider.dart';
 import '../screens/active_pickup_screen.dart';
 import '../screens/navigation_screen.dart';
 import '../screens/verification_screen.dart';
+import 'package:binlink_mobile/core/utils/json_num.dart';
 
 class CollectorMapTab extends StatelessWidget {
   const CollectorMapTab({super.key, required this.pos});
@@ -39,7 +41,12 @@ class CollectorMapTab extends StatelessWidget {
     const navClearance = 86.0 + 12.0; // nav height + gap
     return Stack(
       children: [
-        Positioned.fill(child: BinLinkMap(initialPosition: p, myLocationEnabled: provider.isOnline)),
+        // iOS: only one native map at a time (active pickup/navigation push their own).
+        Positioned.fill(
+          child: defaultTargetPlatform == TargetPlatform.iOS && !(ModalRoute.of(context)?.isCurrent ?? true)
+              ? ColoredBox(color: CollectorColors.dark)
+              : BinLinkMap(initialPosition: p, myLocationEnabled: provider.isOnline),
+        ),
         Positioned(
           top: MediaQuery.paddingOf(context).top + 14,
           left: 16,
@@ -77,8 +84,8 @@ class CollectorMapTab extends StatelessWidget {
               dumpsite: provider.nearestDumpsite,
               onNavigate: () {
                 final d = provider.nearestDumpsite;
-                final dlat = (d?['lat'] as num?)?.toDouble();
-                final dlng = (d?['lng'] as num?)?.toDouble();
+                final dlat = jsonDouble(d?['lat']);
+                final dlng = jsonDouble(d?['lng']);
                 if (dlat == null || dlng == null) return;
                 Navigator.push(context, MaterialPageRoute(builder: (_) => NavigationScreen(
                   destination: ll.LatLng(dlat, dlng),
@@ -206,7 +213,7 @@ class _DumpsiteBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = dumpsite?['name'] as String? ?? 'Nearest dumpsite';
-    final distance = (dumpsite?['distanceKm'] as num?)?.toDouble();
+    final distance = jsonDouble(dumpsite?['distanceKm']);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(

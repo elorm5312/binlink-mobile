@@ -1313,7 +1313,7 @@ const _kTermsSections = [
   ),
   (
     '4. Bookings & Payments',
-    'Bookings are confirmed only upon successful payment via Mobile Money (MTN MoMo, Telecel Cash, or AirtelTigo) or cash on collection. Prices are denominated in Ghana Cedis (GHS). BinLink reserves the right to update pricing at any time with reasonable notice.',
+    'Payment is due once your collector marks the pickup as completed, via Mobile Money (MTN MoMo, Telecel Cash, or AirtelTigo) or your BinLink wallet. Cash on pickup is not accepted. Prices are denominated in Ghana Cedis (GHS). BinLink reserves the right to update pricing at any time with reasonable notice.',
   ),
   (
     '5. Cancellations',

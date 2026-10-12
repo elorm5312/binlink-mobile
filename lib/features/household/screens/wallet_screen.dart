@@ -8,6 +8,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../shared/components/skeleton.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/household_provider.dart';
+import 'package:binlink_mobile/core/utils/json_num.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -232,7 +233,7 @@ class _Section extends StatelessWidget {
                     Text(tx['description'] as String? ?? (tx['type'] as String? ?? 'Transaction'), style: HouseholdType.body),
                     Text(tx['status'] as String? ?? '', style: HouseholdType.caption),
                   ])),
-                  Text(Fmt.currency(((tx['amount'] as num?) ?? 0).toDouble()), style: HouseholdType.section),
+                  Text(Fmt.currency(jsonDouble(tx['amount']) ?? 0), style: HouseholdType.section),
                 ]),
               )),
       ]),
