@@ -17,6 +17,7 @@ import '../screens/navigation_screen.dart';
 import '../screens/verification_screen.dart';
 import 'package:binlink_mobile/core/utils/json_num.dart';
 import 'package:binlink_mobile/shared/components/profile_completion_sheet.dart';
+import 'package:binlink_mobile/core/network/socket_service.dart';
 
 class CollectorMapTab extends StatelessWidget {
   const CollectorMapTab({super.key, required this.pos});
@@ -67,6 +68,8 @@ class CollectorMapTab extends StatelessWidget {
                 child: Text('$capacity%', style: CollectorType.caption.copyWith(color: CollectorColors.green, fontWeight: FontWeight.w900)),
               ),
               const SizedBox(width: 8),
+              const _RefreshButton(),
+              const SizedBox(width: 10),
               GestureDetector(
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MessagesScreen())),
                 child: Icon(PhosphorIcons.chatCircleDots(), color: CollectorColors.white),
@@ -395,6 +398,46 @@ class _OnlineBar extends StatelessWidget {
           ),
         ),
       ]),
+    );
+  }
+}
+
+
+/// Reconnects the live feed and reloads dashboard, online status and open jobs.
+class _RefreshButton extends StatefulWidget {
+  const _RefreshButton();
+
+  @override
+  State<_RefreshButton> createState() => _RefreshButtonState();
+}
+
+class _RefreshButtonState extends State<_RefreshButton> {
+  bool _busy = false;
+
+  Future<void> _refresh() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    HapticFeedback.selectionClick();
+    final prov = context.read<CollectorProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await SocketService.ensureConnected();
+      await prov.loadDashboard();
+      await prov.syncOnlineFromServer();
+      await prov.refreshAvailableJobs();
+      messenger.showSnackBar(const SnackBar(content: Text('Up to date'), duration: Duration(seconds: 1)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _refresh,
+      child: _busy
+          ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: CollectorColors.green))
+          : Icon(PhosphorIcons.arrowClockwise(), color: CollectorColors.white),
     );
   }
 }

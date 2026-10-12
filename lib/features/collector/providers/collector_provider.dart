@@ -105,6 +105,32 @@ class CollectorProvider extends ChangeNotifier {
     _listenForNewBookings();
   }
 
+  bool _refreshingAvailable = false;
+
+  /// Server truth for open job requests. Backs up the socket: runs on app
+  /// resume and every few seconds while online, so a missed 'booking:new'
+  /// (backgrounded app, dropped connection) still reaches the collector.
+  /// Jobs no longer available (taken/cancelled) are dropped from the queue.
+  Future<void> refreshAvailableJobs() async {
+    if (_refreshingAvailable) return;
+    _refreshingAvailable = true;
+    try {
+      final avail = await ApiClient.get('/api/bookings/available');
+      final available = List<Map<String, dynamic>>.from(avail.data['data'] as List? ?? []);
+      final ids = available.map((b) => b['id']).toSet();
+      final before = _pendingRequests.map((r) => r['id']).toList();
+      _pendingRequests.removeWhere((r) => !ids.contains(r['id']));
+      for (final b in available) {
+        if (!_pendingRequests.any((r) => r['id'] == b['id'])) _pendingRequests.add(b);
+      }
+      final after = _pendingRequests.map((r) => r['id']).toList();
+      if (before.length != after.length || !before.every(after.contains)) notifyListeners();
+    } catch (_) {
+    } finally {
+      _refreshingAvailable = false;
+    }
+  }
+
   void _listenForNewBookings() {
     if (_listeningForBookings) return;
     _listeningForBookings = true;

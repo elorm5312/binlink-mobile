@@ -4,6 +4,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:socket_io_client/socket_io_client.dart' as sio;
 import '../config/env.dart';
 import '../storage/secure_storage.dart';
+import 'api_client.dart';
 
 /// Connection health state exposed to the app.
 enum SocketHealth { connected, reconnecting, disconnected }
@@ -13,6 +14,11 @@ class SocketService {
 
   static sio.Socket? _socket;
   static Timer? _heartbeatTimer;
+
+  // Every handler registered through on(). connect() creates a NEW socket
+  // object; handlers attached to the old one were lost, so listeners such as
+  // the collector's 'booking:new' went silent until the app was restarted.
+  static final Map<String, List<Function(dynamic)>> _handlers = {};
 
   // ── Re-join state ──────────────────────────────────────────────────────────
   // Server-side rooms die with the connection. Remember what we joined so a
@@ -60,6 +66,12 @@ class SocketService {
             .build(),
       );
 
+      _handlers.forEach((event, list) {
+        for (final h in list) {
+          _socket!.on(event, h);
+        }
+      });
+
       _socket!.onConnect((_) {
         _emitHealth(SocketHealth.connected);
         debugPrint('[Socket] Connected');
@@ -84,9 +96,20 @@ class SocketService {
             .catchError((_) {});
       });
 
+      // Every reconnect must present the CURRENT access token: the one captured
+      // at connect() expires, and reusing it silently killed the live feed
+      // (collectors stopped getting job requests until the app was reopened).
+      _socket!.on('reconnect_attempt', (_) async {
+        final fresh = await SecureStorage.getAccessToken();
+        if (fresh != null) _socket?.auth = {'token': fresh};
+      });
+
       _socket!.onConnectError((err) {
         _emitHealth(SocketHealth.reconnecting);
         debugPrint('[Socket] Connect error: $err');
+        if ('$err'.contains('token') || '$err'.contains('User not found')) {
+          _recoverAuth();
+        }
         FirebaseCrashlytics.instance
             .recordError(err, StackTrace.current,
                 reason: 'Socket connect error')
@@ -95,6 +118,21 @@ class SocketService {
     } catch (e) {
       debugPrint('[Socket] connect() exception: $e');
     }
+  }
+
+  static DateTime? _lastAuthRecovery;
+
+  /// Server rejected our token: refresh the session (shared with HTTP) and
+  /// reconnect with the new token. Throttled so a bad session can't spin.
+  static Future<void> _recoverAuth() async {
+    final now = DateTime.now();
+    if (_lastAuthRecovery != null && now.difference(_lastAuthRecovery!) < const Duration(seconds: 20)) return;
+    _lastAuthRecovery = now;
+    final token = await ApiClient.refreshAccessToken();
+    final socket = _socket;
+    if (token == null || socket == null) return;
+    socket.auth = {'token': token};
+    if (!socket.connected) socket.connect();
   }
 
   // ── Disconnect ────────────────────────────────────────────────────────────
@@ -125,21 +163,38 @@ class SocketService {
   }
 
   static void on(String event, Function(dynamic) handler) {
+    (_handlers[event] ??= []).add(handler);
     try {
       _socket?.on(event, handler);
     } catch (_) {}
   }
 
   static void off(String event) {
+    _handlers.remove(event);
     try {
       _socket?.off(event);
     } catch (_) {}
   }
 
   static void offHandler(String event, void Function(dynamic) handler) {
+    _handlers[event]?.remove(handler);
     try {
       _socket?.off(event, handler);
     } catch (_) {}
+  }
+
+  /// Called when the app returns to the foreground: iOS/Android suspend the
+  /// socket in the background, so reconnect straight away instead of waiting
+  /// for the backoff timer.
+  static Future<void> ensureConnected() async {
+    final socket = _socket;
+    if (socket == null) {
+      await connect();
+    } else if (!socket.connected) {
+      final fresh = await SecureStorage.getAccessToken();
+      if (fresh != null) socket.auth = {'token': fresh};
+      socket.connect();
+    }
   }
 
   // ── Booking room ──────────────────────────────────────────────────────────

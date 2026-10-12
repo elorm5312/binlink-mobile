@@ -13,6 +13,7 @@ import '../../../shared/screens/chat_screen.dart';
 import '../providers/collector_provider.dart';
 import 'navigation_screen.dart';
 import 'package:binlink_mobile/core/utils/json_num.dart';
+import 'awaiting_payment_screen.dart';
 
 class ActivePickupScreen extends StatefulWidget {
   const ActivePickupScreen({super.key, this.booking = const {}});
@@ -414,7 +415,13 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
                   await _launchNavigation();
                 }
                 if (nextStatus == 'COMPLETED') {
-                  navigator.maybePop();
+                  // Wait on site until the household's payment is confirmed.
+                  navigator.pushReplacement(MaterialPageRoute(
+                    builder: (_) => AwaitingPaymentScreen(
+                      bookingId: bookingId,
+                      amount: agreedAmount ?? jsonDouble(widget.booking['totalAmount']),
+                    ),
+                  ));
                 }
               }),
               if (_enRoute) ...[

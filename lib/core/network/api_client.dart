@@ -42,6 +42,51 @@ class ApiClient {
     return dio;
   }
 
+  static Future<String?>? _refreshing;
+
+  /// Exchanges the refresh token for a new session. Concurrent callers (many
+  /// requests hitting 401 at once, or the socket) share ONE request — parallel
+  /// refreshes used to invalidate each other and log the user out.
+  /// Returns the new access token, or null if it could not be refreshed. Only a
+  /// server rejection (401/403) ends the session; network errors keep it.
+  static Future<String?> refreshAccessToken() =>
+      _refreshing ??= _doRefresh().whenComplete(() => _refreshing = null);
+
+  static Future<String?> _doRefresh() async {
+    final refreshToken = await SecureStorage.getRefreshToken();
+    if (refreshToken == null) {
+      await SecureStorage.clearAll();
+      NavService.pushNamedAndRemoveUntil('/login');
+      return null;
+    }
+    try {
+      final res = await Dio(BaseOptions(
+        baseUrl: Env.apiBaseUrl,
+        connectTimeout: _connectTimeout,
+        receiveTimeout: _receiveTimeout,
+        headers: {'Content-Type': 'application/json', 'x-app-role': FlavorConfig.defaultRole},
+      )).post('/api/auth/refresh', data: {'refreshToken': refreshToken});
+      final data = res.data['data'];
+      await SecureStorage.saveTokens(
+        accessToken: data['accessToken'],
+        refreshToken: data['refreshToken'],
+      );
+      if (data['user'] != null) {
+        await SecureStorage.saveUser(Map<String, dynamic>.from(data['user']));
+      }
+      return data['accessToken'] as String;
+    } on DioException catch (e) {
+      final rejected = e.response?.statusCode == 401 || e.response?.statusCode == 403;
+      if (rejected) {
+        await SecureStorage.clearAll();
+        NavService.pushNamedAndRemoveUntil('/login');
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // Auth helpers
   static Future<Response> post(String path, Map<String, dynamic> data) =>
       instance.post(path, data: data);
@@ -103,7 +148,6 @@ class ApiClient {
 class _AuthInterceptor extends Interceptor {
   _AuthInterceptor(this._dio);
   final Dio _dio;
-  bool _isRefreshing = false;
 
   @override
   Future<void> onRequest(
@@ -159,51 +203,22 @@ class _AuthInterceptor extends Interceptor {
       return;
     }
 
-    if (err.response?.statusCode == 401 && !_isRefreshing) {
-      _isRefreshing = true;
-      try {
-        final refreshToken = await SecureStorage.getRefreshToken();
-        if (refreshToken == null) {
-          await SecureStorage.clearAll();
-          NavService.pushNamedAndRemoveUntil('/login');
-          handler.next(err);
-          return;
-        }
-
-        final res = await _dio.post(
-          '/api/auth/refresh',
-          data: {'refreshToken': refreshToken},
-          options: Options(headers: {'Authorization': ''}),
-        );
-
-        final data = res.data['data'];
-        await SecureStorage.saveTokens(
-          accessToken: data['accessToken'],
-          refreshToken: data['refreshToken'],
-        );
-        await SecureStorage.saveUser(Map<String, dynamic>.from(data['user']));
-
-        // Retry original request
-        final opts = err.requestOptions;
-        opts.headers['Authorization'] = 'Bearer ${data['accessToken']}';
-        final retried = await _dio.fetch(opts);
-        handler.resolve(retried);
-      } catch (refreshErr) {
-        // Only destroy the session when the refresh token is genuinely rejected
-        // by the server (401/403). A transient network failure during refresh
-        // (very common on Ghana 3G) must NOT log the user out — that was causing
-        // spurious auto-logouts. In that case keep the session and just surface
-        // the original error so the user can retry, still signed in.
-        final rejected = refreshErr is DioException &&
-            (refreshErr.response?.statusCode == 401 ||
-                refreshErr.response?.statusCode == 403);
-        if (rejected) {
-          await SecureStorage.clearAll();
-          NavService.pushNamedAndRemoveUntil('/login');
-        }
+    final alreadyRetried = err.requestOptions.extra['authRetried'] == true;
+    if (err.response?.statusCode == 401 &&
+        !alreadyRetried &&
+        !err.requestOptions.path.contains('/api/auth/')) {
+      final token = await ApiClient.refreshAccessToken();
+      if (token == null) {
         handler.next(err);
-      } finally {
-        _isRefreshing = false;
+        return;
+      }
+      try {
+        final opts = err.requestOptions;
+        opts.headers['Authorization'] = 'Bearer $token';
+        opts.extra['authRetried'] = true;
+        handler.resolve(await _dio.fetch(opts));
+      } on DioException catch (retryErr) {
+        handler.next(retryErr);
       }
     } else {
       handler.next(err);

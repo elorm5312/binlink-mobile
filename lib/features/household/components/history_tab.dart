@@ -17,10 +17,21 @@ class HistoryTab extends StatelessWidget {
     final provider = context.watch<HouseholdProvider>();
     final bookings = provider.completedBookings;
     return SafeArea(
-      child: ListView(
+      child: RefreshIndicator(
+        color: HouseholdColors.primary,
+        onRefresh: provider.loadBookings,
+        child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 116),
         children: [
-          Text('History', style: HouseholdType.hero),
+          Row(children: [
+            Expanded(child: Text('History', style: HouseholdType.hero)),
+            IconButton(
+              tooltip: 'Refresh',
+              onPressed: provider.loading ? null : provider.loadBookings,
+              icon: Icon(Icons.refresh_rounded, color: HouseholdColors.primary),
+            ),
+          ]),
           const SizedBox(height: 8),
           Text('Receipts, carbon savings, past pickups, and service records.', style: HouseholdType.body.copyWith(color: HouseholdColors.gray)),
           const SizedBox(height: 22),
@@ -46,6 +57,7 @@ class HistoryTab extends StatelessWidget {
             ...bookings.map((b) => _HistoryTile(booking: b)),
           ],
         ],
+      ),
       ),
     );
   }

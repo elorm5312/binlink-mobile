@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/design_system/collector_design_system.dart';
+import '../../../core/network/socket_service.dart';
 import '../../../core/services/location_service.dart';
 import '../components/collector_map_tab.dart';
 import '../components/collector_profile_tab.dart';
@@ -22,15 +23,24 @@ class CollectorMapScreen extends StatefulWidget {
   State<CollectorMapScreen> createState() => _CollectorMapScreenState();
 }
 
-class _CollectorMapScreenState extends State<CollectorMapScreen> {
+class _CollectorMapScreenState extends State<CollectorMapScreen> with WidgetsBindingObserver {
   int _index = 0;
   LatLng? _pos;
   StreamSubscription<Position>? _sub;
 
+  Timer? _jobPoll;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _init();
+    // Socket backup: while online, re-check open jobs every 15 s.
+    _jobPoll = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!mounted) return;
+      final prov = context.read<CollectorProvider>();
+      if (prov.isOnline) prov.refreshAvailableJobs();
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) ProfileCompletion.ensure(context);
     });
@@ -38,8 +48,20 @@ class _CollectorMapScreenState extends State<CollectorMapScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _jobPoll?.cancel();
     _sub?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !mounted) return;
+    // Back from background: reconnect the live feed and catch up on jobs.
+    SocketService.ensureConnected();
+    final prov = context.read<CollectorProvider>();
+    prov.syncOnlineFromServer();
+    prov.refreshAvailableJobs();
   }
 
   Future<void> _init() async {

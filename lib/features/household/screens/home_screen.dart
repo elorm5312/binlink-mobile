@@ -17,6 +17,7 @@ import '../providers/household_provider.dart';
 import 'tracking_screen.dart';
 import 'wallet_screen.dart';
 import 'package:binlink_mobile/shared/components/profile_completion_sheet.dart';
+import 'package:binlink_mobile/core/network/socket_service.dart';
 
 class HouseholdHomeScreen extends StatefulWidget {
   const HouseholdHomeScreen({super.key});
@@ -25,7 +26,7 @@ class HouseholdHomeScreen extends StatefulWidget {
   State<HouseholdHomeScreen> createState() => _HouseholdHomeScreenState();
 }
 
-class _HouseholdHomeScreenState extends State<HouseholdHomeScreen> {
+class _HouseholdHomeScreenState extends State<HouseholdHomeScreen> with WidgetsBindingObserver {
   int _index = 0;
   ll.LatLng? _myPos;
   ll.LatLng? _subscribedPos;
@@ -41,14 +42,34 @@ class _HouseholdHomeScreenState extends State<HouseholdHomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _init();
+    // A payment confirmed anywhere (this phone, webhook) refreshes bookings so
+    // "Make payment" disappears and the booking shows as paid.
+    SocketService.on('booking:paid', _onPaid);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) ProfileCompletion.ensure(context);
     });
   }
 
+  void _onPaid(dynamic _) {
+    if (mounted) context.read<HouseholdProvider>().loadBookings();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !mounted) return;
+    // Back from background: reconnect the live feed and refresh bookings.
+    SocketService.ensureConnected();
+    final prov = context.read<HouseholdProvider>();
+    prov.loadBookings();
+    prov.loadOnlineCollectors();
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    SocketService.offHandler('booking:paid', _onPaid);
     _posSub?.cancel();
     _collectorPollTimer?.cancel();
     _acceptPollTimer?.cancel();
@@ -190,10 +211,21 @@ class _PickupsTab extends StatelessWidget {
         .where((b) => ['PENDING', 'SEARCHING', 'ASSIGNED', 'ACCEPTED', 'EN_ROUTE', 'ON_THE_WAY', 'ARRIVED', 'COLLECTING', 'COLLECTED'].contains(b['status']))
         .toList();
     return SafeArea(
-      child: ListView(
+      child: RefreshIndicator(
+        color: HouseholdColors.primary,
+        onRefresh: provider.loadBookings,
+        child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 116),
         children: [
-          Text('Pickups', style: HouseholdType.hero),
+          Row(children: [
+            Expanded(child: Text('Pickups', style: HouseholdType.hero)),
+            IconButton(
+              tooltip: 'Refresh',
+              onPressed: provider.loading ? null : provider.loadBookings,
+              icon: Icon(Icons.refresh_rounded, color: HouseholdColors.primary),
+            ),
+          ]),
           const SizedBox(height: 8),
           Text('Upcoming, searching, and active collection requests.', style: HouseholdType.body.copyWith(color: HouseholdColors.gray)),
           const SizedBox(height: 22),
@@ -206,6 +238,7 @@ class _PickupsTab extends StatelessWidget {
           else
             ...bookings.map((b) => _PickupCard(booking: b)),
         ],
+      ),
       ),
     );
   }
