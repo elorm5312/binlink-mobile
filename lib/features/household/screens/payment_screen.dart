@@ -496,55 +496,63 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
       _verifying = true;
       _error = null;
     });
+    final provider = context.read<HouseholdProvider>();
     try {
-      final provider = context.read<HouseholdProvider>();
       await ApiClient.post('/api/payments/verify', {
         'bookingId': bookingId,
         if (method != null) 'method': method,
         if (method != 'wallet') 'reference': reference,
       });
-      await provider.loadBookings();
-      await provider.loadWalletSummary();
-      final refreshedBooking = provider.bookings.cast<Map<String, dynamic>?>().firstWhere(
-            (booking) => booking?['id'] == bookingId,
-            orElse: () => widget.booking,
-          ) ??
-          widget.booking;
-      _verifiedBooking = Map<String, dynamic>.from(refreshedBooking);
-      await ReceiptService.shareReceipt(_verifiedBooking!);
-      if (!mounted) return;
-      setState(() {
-        _awaitingVerification = false;
-        _successRef = 'Payment verified';
-      });
-      HapticFeedback.lightImpact();
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => PaymentSuccessScreen(
-            booking: _verifiedBooking!,
-            reference: reference,
-          ),
-        ),
-      );
     } catch (_) {
+      // Only a failed verify call means the payment is unconfirmed.
       if (mounted) {
-        setState(() => _error = 'Payment verification failed. Please retry after the callback returns.');
+        setState(() {
+          _verifying = false;
+          _error = 'We could not confirm the payment yet. If you approved it, wait a moment and tap Verify payment.';
+        });
       }
-    } finally {
-      if (mounted) setState(() => _verifying = false);
+      return;
     }
+
+    // The server has confirmed payment. Nothing below may turn this into an error.
+    _verifiedBooking = await _refreshedBooking(provider, bookingId);
+    _verifiedBooking!['paymentStatus'] = 'PAID';
+    try {
+      await provider.loadWalletSummary();
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _verifying = false;
+      _awaitingVerification = false;
+      _successRef = 'Payment verified';
+    });
+    HapticFeedback.lightImpact();
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => PaymentSuccessScreen(
+          booking: _verifiedBooking!,
+          reference: reference,
+        ),
+      ),
+    );
   }
 
-  Future<void> _finishPayment(String bookingId) async {
-    final provider = context.read<HouseholdProvider>();
-    await provider.loadBookings();
+  /// Latest copy of the booking for the receipt; falls back to the one we have.
+  Future<Map<String, dynamic>> _refreshedBooking(HouseholdProvider provider, String bookingId) async {
+    try {
+      await provider.loadBookings();
+    } catch (_) {}
     final booking = provider.bookings.cast<Map<String, dynamic>?>().firstWhere(
           (item) => item?['id'] == bookingId,
           orElse: () => widget.booking,
         ) ??
         widget.booking;
-    _verifiedBooking = Map<String, dynamic>.from(booking);
-    await ReceiptService.shareReceipt(_verifiedBooking!);
+    return Map<String, dynamic>.from(booking);
+  }
+
+  Future<void> _finishPayment(String bookingId) async {
+    final provider = context.read<HouseholdProvider>();
+    _verifiedBooking = await _refreshedBooking(provider, bookingId);
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
