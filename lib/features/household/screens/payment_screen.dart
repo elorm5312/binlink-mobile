@@ -363,11 +363,37 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
         'phone': phone,
         'method': _method,
       });
-      final data = Map<String, dynamic>.from(res.data['data'] as Map? ?? {});
+      var data = Map<String, dynamic>.from(res.data['data'] as Map? ?? {});
       final ref = data['reference'] as String?;
-      final status = data['status'] as String?;
+      var status = data['status'] as String?;
+      setState(() => _reference = ref);
+
+      // Some MoMo charges need an SMS code before Paystack sends the PIN prompt.
+      while (status == 'send_otp' && ref != null) {
+        setState(() => _promptText = (data['displayText'] as String?) ??
+            'Enter the code sent to your phone by SMS.');
+        final otp = await _askOtp();
+        if (otp == null) {
+          setState(() => _promptText = null);
+          return;
+        }
+        final otpRes = await ApiClient.post('/api/payments/charge/otp', {
+          'bookingId': bookingId,
+          'reference': ref,
+          'otp': otp,
+        });
+        data = Map<String, dynamic>.from(otpRes.data['data'] as Map? ?? {});
+        status = data['status'] as String?;
+      }
+      if (status == 'failed') {
+        setState(() {
+          _promptText = null;
+          _error = (data['displayText'] as String?) ?? 'The mobile money charge was declined.';
+        });
+        return;
+      }
+
       setState(() {
-        _reference = ref;
         _promptText = (data['displayText'] as String?) ??
             'Approve the payment prompt on your phone to complete the charge.';
       });
@@ -385,6 +411,47 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
         _promptText = null;
       });
     }
+  }
+
+  Future<String?> _askOtp() async {
+    final ctrl = TextEditingController();
+    final otp = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (d) => AlertDialog(
+        backgroundColor: HouseholdColors.card,
+        title: Text('Enter SMS code', style: HouseholdType.title),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('Your network sent a one-time code to ${_phoneCtrl.text.trim()}. Enter it to continue.',
+              style: HouseholdType.caption),
+          const SizedBox(height: 14),
+          TextField(
+            controller: ctrl,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            style: HouseholdType.title,
+            decoration: InputDecoration(
+              hintText: '123456',
+              filled: true,
+              fillColor: HouseholdColors.warmWhite,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+            ),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(d), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: HouseholdColors.primary),
+            onPressed: () {
+              final v = ctrl.text.trim();
+              if (v.isNotEmpty) Navigator.pop(d, v);
+            },
+            child: const Text('Submit'),
+          ),
+        ],
+      ),
+    );
+    return otp;
   }
 
   /// Polls /api/payments/verify until the booking is PAID or the window closes.
