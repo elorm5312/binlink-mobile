@@ -90,8 +90,8 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
 
   /// Asks the collector for the price agreed with the household. Returns null
   /// if cancelled.
-  Future<double?> _askAgreedPrice() async {
-    final ctrl = TextEditingController();
+  Future<double?> _askAgreedPrice({double? initial}) async {
+    final ctrl = TextEditingController(text: initial != null && initial > 0 ? initial.toStringAsFixed(2) : '');
     String? fieldError;
     return showDialog<double>(
       context: context,
@@ -100,7 +100,7 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
           backgroundColor: CollectorColors.charcoal,
           title: Text('Agreed price', style: CollectorType.title),
           content: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text('Enter the amount (GHS) you agreed with the customer for this pickup.',
+            Text('Confirm the amount (GHS) agreed with the customer. They pay this in the app after you complete.',
                 style: CollectorType.caption),
             const SizedBox(height: 14),
             TextField(
@@ -384,11 +384,13 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
                 final bookingId = widget.booking['id'] as String?;
                 if (bookingId == null) return;
                 double? agreedAmount;
-                // If the customer already confirmed a negotiated price, use it and
-                // skip re-asking; otherwise fall back to entering it at completion.
-                if (action == 'complete' && _isNegotiated &&
-                    widget.booking['negotiatedStatus'] != 'CONFIRMED') {
-                  agreedAmount = await _askAgreedPrice();
+                // Negotiated pickup: always confirm the price at completion,
+                // pre-filled with what the household entered at booking.
+                if (action == 'complete' && _isNegotiated) {
+                  agreedAmount = await _askAgreedPrice(
+                    initial: jsonDouble(widget.booking['negotiatedAmount']) ??
+                        jsonDouble(widget.booking['negotiatedProposal']),
+                  );
                   if (agreedAmount == null || !mounted) return;
                 }
                 // Weight is intentionally not captured (no weighing scale in the field).
