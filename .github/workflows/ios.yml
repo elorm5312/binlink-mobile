@@ -1,0 +1,104 @@
+name: Build iOS (TestFlight)
+
+# Manual only: Actions tab → "Build iOS (TestFlight)" → Run workflow.
+# Both apps are built from the single Runner target; the Dart entry point picks
+# the flavor and the bundle ID / display name are set right before each build.
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: Upload the IPAs to App Store Connect (TestFlight)
+        type: boolean
+        default: true
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    name: Build BinLink Eco + Collector IPAs
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.ASC_KEY_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+      CERTIFICATE_PRIVATE_KEY: ${{ secrets.IOS_CERTIFICATE_PRIVATE_KEY }}
+      BUILD_NUMBER: ${{ github.run_number }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select latest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Setup Flutter 3.38.1
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.1'
+          channel: stable
+          cache: true
+
+      - name: Write .env
+        run: echo "${{ secrets.DOTENV_B64 }}" | base64 -d > .env
+
+      - name: Install Codemagic CLI tools (signing helpers)
+        run: pipx install codemagic-cli-tools
+
+      - name: Dependencies
+        run: |
+          flutter pub get
+          cd ios && pod install --repo-update
+
+      - name: Fetch signing certificate + App Store profiles
+        run: |
+          keychain initialize
+          app-store-connect fetch-signing-files com.binlink.eco --type IOS_APP_STORE --create
+          app-store-connect fetch-signing-files com.binlink.collector --type IOS_APP_STORE --create
+          keychain add-certificates
+
+      - name: Build BinLink Eco
+        run: |
+          set -e
+          sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = [^;]*binlinkMobile;/PRODUCT_BUNDLE_IDENTIFIER = com.binlink.eco;/' ios/Runner.xcodeproj/project.pbxproj
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName BinLink Eco" ios/Runner/Info.plist
+          xcode-project use-profiles
+          flutter build ipa --release -t lib/main_household.dart \
+            --build-number=$BUILD_NUMBER \
+            --export-options-plist=$HOME/export_options.plist
+          mkdir -p output
+          cp build/ios/ipa/*.ipa output/BinLink-Eco.ipa
+          rm -rf build/ios/ipa
+
+      - name: Build BinLink Collector
+        run: |
+          set -e
+          sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = com.binlink.eco;/PRODUCT_BUNDLE_IDENTIFIER = com.binlink.collector;/' ios/Runner.xcodeproj/project.pbxproj
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName BinLink Collector" ios/Runner/Info.plist
+          xcode-project use-profiles
+          flutter build ipa --release -t lib/main_collector.dart \
+            --build-number=$BUILD_NUMBER \
+            --export-options-plist=$HOME/export_options.plist
+          cp build/ios/ipa/*.ipa output/BinLink-Collector.ipa
+
+      - name: Keep IPAs as build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binlink-ios-${{ github.run_number }}
+          path: output/*.ipa
+          retention-days: 14
+
+      # Uploads need the app records to exist in App Store Connect.
+      - name: Upload BinLink Eco to TestFlight
+        if: inputs.upload
+        continue-on-error: true
+        run: app-store-connect publish --path output/BinLink-Eco.ipa
+
+      - name: Upload BinLink Collector to TestFlight
+        if: inputs.upload
+        continue-on-error: true
+        run: app-store-connect publish --path output/BinLink-Collector.ipa
