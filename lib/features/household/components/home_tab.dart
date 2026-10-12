@@ -10,6 +10,7 @@ import '../../../shared/components/searching_radar_widget.dart';
 import '../../../shared/screens/messages_screen.dart';
 import '../providers/household_provider.dart';
 import '../screens/book_screen.dart';
+import '../screens/payment_screen.dart';
 import '../screens/tracking_screen.dart';
 
 class HomeTab extends StatefulWidget {
@@ -155,13 +156,17 @@ class _BookingPanel extends StatelessWidget {
       final isArriving = ['ASSIGNED', 'ACCEPTED', 'EN_ROUTE', 'ON_THE_WAY', 'ARRIVED', 'COLLECTING'].contains(status);
       final isComplete = ['COMPLETED', 'COLLECTED'].contains(status);
       final isCancelled = status == 'CANCELLED';
+      final needsPayment = isComplete && active!['paymentStatus'] != 'PAID';
+      final amountDue = num.tryParse('${active!['negotiatedAmount'] ?? active!['totalAmount']}') ?? 0;
       final asset = isCancelled ? HouseholdAssets.networkError : (isComplete ? HouseholdAssets.complete : HouseholdAssets.arriving);
       final title = isCancelled ? 'Pickup cancelled' : (isComplete ? 'Pickup complete' : isArriving ? 'Collector arriving' : status.replaceAll('_', ' '));
       final copy = isCancelled
           ? 'This pickup was cancelled. Book a new one to continue.'
-          : (isComplete
-              ? 'Collection done. Your receipt and impact record are ready.'
-              : active!['pickupAddress'] as String? ?? 'Pickup in progress');
+          : (needsPayment
+              ? 'Collection done. Tap Make payment to pay your collector.'
+              : isComplete
+                  ? 'Collection done. Your receipt and impact record are ready.'
+                  : active!['pickupAddress'] as String? ?? 'Pickup in progress');
       return HCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
           Row(children: [
@@ -178,6 +183,13 @@ class _BookingPanel extends StatelessWidget {
           const SizedBox(height: 14),
           if (isCancelled)
             HButton(label: 'Book new pickup', icon: 'pickup', onPressed: onBookNow)
+          else if (needsPayment)
+            HButton(
+              label: amountDue > 0 ? 'Make payment · GHS ${amountDue.toStringAsFixed(2)}' : 'Make payment',
+              icon: 'payment',
+              onPressed: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => PaymentScreen(booking: Map<String, dynamic>.from(active!)))),
+            )
           else if (!isComplete)
             HButton(label: 'Track pickup', icon: 'tracking', onPressed: onTrack)
           else

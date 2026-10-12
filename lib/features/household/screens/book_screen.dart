@@ -13,7 +13,6 @@ import '../../../core/design_system/household_design_system.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/services/places_service.dart';
 import '../providers/household_provider.dart';
-import 'payment_screen.dart';
 import 'tracking_screen.dart';
 
 const _kPrices = {'SMALL': 50.0, 'MEDIUM': 60.0, 'LARGE': 70.0};
@@ -272,17 +271,10 @@ class _BookScreenState extends State<BookScreen> {
       return;
     }
     prov.listenToBooking(booking['id'] as String);
-    // Negotiated bookings go to tracking first — the collector states a price on
-    // arrival which the customer then enters on the payment screen.
-    if (_payment == 'CASH' || !_isFixed || _negotiate) {
-      Navigator.of(context).pushReplacement(MaterialPageRoute(
-        builder: (_) => TrackingScreen(booking: booking),
-      ));
-    } else {
-      Navigator.of(context).pushReplacement(MaterialPageRoute(
-        builder: (_) => PaymentScreen(booking: booking),
-      ));
-    }
+    // Payment happens after the collector completes the pickup, from tracking.
+    Navigator.of(context).pushReplacement(MaterialPageRoute(
+      builder: (_) => TrackingScreen(booking: booking),
+    ));
   }
 
   /// Shown when booking fails because an earlier pickup is still active.

@@ -34,15 +34,18 @@ class _TrackingScreenState extends State<TrackingScreen> {
   double _collectorBearing = 0.0;
   ll.LatLng? _prevCollectorPos;
   bool _arrivingBuzzed = false;
+  // Captured in initState: looking up providers from dispose() throws.
+  late final HouseholdProvider _prov;
 
   @override
   void initState() {
     super.initState();
+    _prov = context.read<HouseholdProvider>();
     _booking = Map<String, dynamic>.from(widget.booking);
     _status = (_booking['status'] as String? ?? 'SEARCHING').toUpperCase();
     final bookingId = _booking['id'] as String?;
     if (bookingId != null) {
-      final prov = context.read<HouseholdProvider>();
+      final prov = _prov;
       prov.listenToBooking(bookingId);
       prov.loadFavorites();
       _subscribeRealtime(bookingId);
@@ -74,7 +77,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
   @override
   void dispose() {
     _supaChannel?.unsubscribe();
-    context.read<HouseholdProvider>().stopListening();
+    _prov.stopListening();
     super.dispose();
   }
 
@@ -586,6 +589,10 @@ class _BottomCard extends StatelessWidget {
   bool get _isDone    => ['COMPLETED', 'COLLECTED', 'CANCELLED'].contains(status);
   bool get _canTip    => ['COMPLETED', 'COLLECTED'].contains(status) &&
       collector != null && booking['tipPaidAt'] == null;
+  bool get _awaitingPayment => ['COMPLETED', 'COLLECTED'].contains(status) &&
+      booking['paymentStatus'] != 'PAID';
+  num get _amountDue =>
+      num.tryParse('${booking['negotiatedAmount'] ?? booking['totalAmount']}') ?? 0;
 
   @override
   Widget build(BuildContext context) {
@@ -682,22 +689,30 @@ class _BottomCard extends StatelessWidget {
               ),
             ],
 
-            // Negotiated pickup, not yet paid → open payment to enter the
-            // collector's stated price and pay (Paystack/MoMo).
-            if (booking['pricingMode'] == 'NEGOTIATED' &&
-                booking['paymentStatus'] != 'PAID' &&
-                !_isDone) ...[
-              const SizedBox(height: 12),
-              Builder(builder: (_) {
-                final amt = num.tryParse('${booking['negotiatedAmount'] ?? booking['totalAmount']}') ?? 0;
-                return HButton(
-                  label: amt > 0 ? 'Pay GHS ${amt.toStringAsFixed(2)} now' : 'Enter price & pay',
-                  icon: 'payment',
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => PaymentScreen(booking: booking)),
+            // Collector marked the pickup completed → household pays (Paystack/MoMo).
+            if (_awaitingPayment) ...[
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: HouseholdColors.primary.withAlpha(16),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: HouseholdColors.primary.withAlpha(60)),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Pickup completed — payment due',
+                      style: HouseholdType.caption.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 10),
+                  HButton(
+                    label: _amountDue > 0 ? 'Make payment · GHS ${_amountDue.toStringAsFixed(2)}' : 'Make payment',
+                    icon: 'payment',
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => PaymentScreen(booking: booking)),
+                    ),
                   ),
-                );
-              }),
+                ]),
+              ),
             ],
             const SizedBox(height: 16),
 

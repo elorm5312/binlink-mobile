@@ -32,9 +32,7 @@ class _SplashScreenState extends State<SplashScreen>
   Color get _bgColor => _isCollector ? const Color(0xFF0B100D) : const Color(0xFFF4F7F4);
   Color get _accentColor => const Color(0xFF2BD97B);
   Color get _accentDark => const Color(0xFF16A34A);
-  Color get _textColor => _isCollector ? Colors.white : const Color(0xFF0B3B2E);
   Color get _mutedTextColor => _isCollector ? Colors.white.withAlpha(150) : const Color(0xFF6B7280);
-  Color get _cardColor => _isCollector ? const Color(0xFF161D18) : Colors.white;
   Color get _glowColor => _isCollector ? _accentColor : _accentDark;
 
   @override

@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -12,6 +12,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app_flavor.dart';
 import 'env.dart';
 import 'firebase_ios_options.dart';
+import '../../shared/components/app_error_view.dart';
 import '../design_system/collector_design_system.dart';
 import '../services/background_location_service.dart';
 import '../services/push/push_manager.dart';
@@ -27,6 +28,7 @@ class CoreInitializer {
   static Future<void> init(AppFlavor flavor) async {
     WidgetsFlutterBinding.ensureInitialized();
     FlavorConfig.flavor = flavor;
+    if (kReleaseMode) ErrorWidget.builder = (details) => AppErrorView(details);
 
     // MapLibre default (virtual display) hosts the map in a SurfaceView,
     // which Flutter virtual displays do NOT support — covering the map with

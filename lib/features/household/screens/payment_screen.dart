@@ -170,7 +170,6 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
               ('mtn_momo', 'MTN MoMo'),
               ('telecel_cash', 'Telecel Cash'),
               ('airteltigo_money', 'AirtelTigo Money'),
-              ('cash', 'Cash'),
               ('wallet', 'Wallet'),
             ])
               _PaymentMethod(id: method.$1, label: method.$2, selected: _method == method.$1, onTap: () => setState(() => _method = method.$1)),
@@ -226,14 +225,17 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
                   ? null
                   : () => _confirmPayment(bookingId),
             ),
-            const SizedBox(height: 10),
-            // Customer-initiated negotiation: propose your own price for admin review.
-            HButton(
-              label: amountValue > 0 && isNegotiated ? 'Update negotiated price' : 'Negotiate price',
-              icon: 'security',
-              secondary: true,
-              onPressed: bookingId == null ? null : () => _negotiate(bookingId),
-            ),
+            // The price is agreed at booking; only legacy negotiated bookings
+            // without an amount still need one entered here.
+            if (negotiatedPending) ...[
+              const SizedBox(height: 10),
+              HButton(
+                label: 'Enter agreed price',
+                icon: 'security',
+                secondary: true,
+                onPressed: bookingId == null ? null : () => _negotiate(bookingId),
+              ),
+            ],
           ],
         ),
       ),
