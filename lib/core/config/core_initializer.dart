@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -10,6 +11,7 @@ import 'package:maplibre_gl/maplibre_gl.dart' show MapLibreMap;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app_flavor.dart';
 import 'env.dart';
+import 'firebase_ios_options.dart';
 import '../design_system/collector_design_system.dart';
 import '../services/background_location_service.dart';
 import '../services/push/push_manager.dart';
@@ -60,7 +62,11 @@ class CoreInitializer {
     //    local platform init (reads google-services.json), so it's fast — the
     //    slow part was the notification permission dialog, which stays deferred.
     try {
-      await Firebase.initializeApp();
+      await Firebase.initializeApp(
+        options: defaultTargetPlatform == TargetPlatform.iOS
+            ? FirebaseIosOptions.forFlavor(flavor)
+            : null,
+      );
       FlutterError.onError = (details) {
         FlutterError.presentError(details);
         FirebaseCrashlytics.instance.recordFlutterError(details);

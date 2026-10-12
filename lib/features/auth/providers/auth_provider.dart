@@ -11,6 +11,7 @@ import '../../../core/network/socket_service.dart';
 import '../../../core/services/push/push_manager.dart';
 import '../../../core/services/offline_action_queue_service.dart';
 import '../../../core/config/app_flavor.dart';
+import '../../../core/config/firebase_ios_options.dart';
 import '../../../shared/models/user_model.dart';
 
 enum AuthStatus { unknown, authenticated, unauthenticated }
@@ -34,6 +35,9 @@ class AuthProvider extends ChangeNotifier {
   // Passing it guarantees googleAuth.idToken is populated so the backend can
   // verify the sign-in; without it Android sometimes returns a null idToken.
   final _googleSignIn = GoogleSignIn(
+    clientId: defaultTargetPlatform == TargetPlatform.iOS
+        ? FirebaseIosOptions.clientId
+        : null,
     serverClientId:
         '781294511680-si9b7g4ev1lh2re4psqvij7tr92c4qao.apps.googleusercontent.com',
   );
