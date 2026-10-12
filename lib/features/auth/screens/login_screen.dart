@@ -6,6 +6,7 @@ import '../../../core/config/app_flavor.dart';
 import '../../../core/design_system/collector_design_system.dart';
 import '../../../core/design_system/household_design_system.dart';
 import '../../../core/utils/validators.dart';
+import '../../../shared/components/google_sign_in_button.dart';
 import '../providers/auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -89,7 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 12),
                 HButton(label: 'Continue', icon: 'security', loading: auth.loading, onPressed: _loginEmail),
                 const SizedBox(height: 12),
-                HButton(label: 'Continue with Google', icon: 'search', secondary: true, onPressed: _loginGoogle),
+                GoogleSignInButton(onPressed: _loginGoogle, loading: auth.loading),
                 const SizedBox(height: 22),
                 Center(child: TextButton(onPressed: () => Navigator.pushNamed(context, '/register'), child: Text('Create a BinLink account', style: HouseholdType.body.copyWith(color: HouseholdColors.forest, fontWeight: FontWeight.w700)))),
               ],
@@ -125,7 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 14),
                 CButton(label: 'SIGN IN', icon: 'security', loading: auth.loading, onPressed: _loginEmail),
                 const SizedBox(height: 12),
-                CButton(label: 'SIGN IN WITH GOOGLE', icon: 'scan', secondary: true, onPressed: _loginGoogle),
+                GoogleSignInButton(onPressed: _loginGoogle, loading: auth.loading, dark: true, label: 'Sign in with Google'),
                 const SizedBox(height: 24),
                 Center(child: TextButton(onPressed: () => Navigator.pushNamed(context, '/register'), child: Text('Register as a collector', style: CollectorType.body.copyWith(color: CollectorColors.green, fontWeight: FontWeight.w800)))),
               ],

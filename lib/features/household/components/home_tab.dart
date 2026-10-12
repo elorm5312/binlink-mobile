@@ -14,6 +14,7 @@ import '../screens/book_screen.dart';
 import '../screens/payment_screen.dart';
 import '../screens/tracking_screen.dart';
 import 'package:binlink_mobile/core/utils/json_num.dart';
+import 'package:binlink_mobile/shared/components/profile_completion_sheet.dart';
 
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key, required this.myPos, required this.onTabSwitch});
@@ -29,7 +30,8 @@ class _HomeTabState extends State<HomeTab> {
   // while GPS is resolving, or if location permission/services are unavailable.
   static const _fallbackCenter = ll.LatLng(5.6037, -0.1870);
 
-  void _openBook({String mode = 'immediate'}) {
+  Future<void> _openBook({String mode = 'immediate'}) async {
+    if (!await ProfileCompletion.ensure(context) || !mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => BookScreen(mode: mode, myPos: widget.myPos)),

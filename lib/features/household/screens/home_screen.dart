@@ -16,6 +16,7 @@ import '../components/profile_tab.dart';
 import '../providers/household_provider.dart';
 import 'tracking_screen.dart';
 import 'wallet_screen.dart';
+import 'package:binlink_mobile/shared/components/profile_completion_sheet.dart';
 
 class HouseholdHomeScreen extends StatefulWidget {
   const HouseholdHomeScreen({super.key});
@@ -41,6 +42,9 @@ class _HouseholdHomeScreenState extends State<HouseholdHomeScreen> {
   void initState() {
     super.initState();
     _init();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ProfileCompletion.ensure(context);
+    });
   }
 
   @override

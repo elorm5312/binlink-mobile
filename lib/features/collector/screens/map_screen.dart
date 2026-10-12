@@ -13,6 +13,7 @@ import '../providers/collector_provider.dart';
 import 'collector_notifications_screen.dart';
 import 'earnings_screen.dart';
 import 'pickups_screen.dart';
+import 'package:binlink_mobile/shared/components/profile_completion_sheet.dart';
 
 class CollectorMapScreen extends StatefulWidget {
   const CollectorMapScreen({super.key});
@@ -30,6 +31,9 @@ class _CollectorMapScreenState extends State<CollectorMapScreen> {
   void initState() {
     super.initState();
     _init();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ProfileCompletion.ensure(context);
+    });
   }
 
   @override

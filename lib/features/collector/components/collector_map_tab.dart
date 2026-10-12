@@ -16,6 +16,7 @@ import '../screens/active_pickup_screen.dart';
 import '../screens/navigation_screen.dart';
 import '../screens/verification_screen.dart';
 import 'package:binlink_mobile/core/utils/json_num.dart';
+import 'package:binlink_mobile/shared/components/profile_completion_sheet.dart';
 
 class CollectorMapTab extends StatelessWidget {
   const CollectorMapTab({super.key, required this.pos});
@@ -130,6 +131,8 @@ class CollectorMapTab extends StatelessWidget {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const VerificationScreen()));
                       return;
                     }
+                    if (!provider.isOnline && !await ProfileCompletion.ensure(context)) return;
+                    if (!context.mounted) return;
                     final messenger = ScaffoldMessenger.of(context);
                     final wasOnline = provider.isOnline;
                     final ok = await provider.toggleOnline();

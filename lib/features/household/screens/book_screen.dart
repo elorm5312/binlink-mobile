@@ -173,7 +173,9 @@ class _BookScreenState extends State<BookScreen> {
     switch (_step) {
       case 1:
         // If negotiate is selected, require a price to be entered
-        if (_negotiate && (_negotiatedPrice == null || _negotiatedPrice! <= 0)) return false;
+        // Every negotiated booking (non-bin categories, or bins with negotiate on)
+        // needs the agreed price.
+        if ((_negotiate || !_isFixed) && (_negotiatedPrice == null || _negotiatedPrice! <= 0)) return false;
         return !_isBulky || _bulkyPhotos.isNotEmpty;
       case 2: return _isImmediate || _scheduledDate != null;
       case 3: return _addrCtrl.text.trim().isNotEmpty;
@@ -255,7 +257,7 @@ class _BookScreenState extends State<BookScreen> {
       promoCode: (_isFixed && !_negotiate) ? _promoCode : null,
       pricingMode: (_isFixed && !_negotiate) ? null : 'NEGOTIATED',
       bulkyPhotos: photoUrls,
-      negotiatedAmount: _negotiate ? _negotiatedPrice : null,
+      negotiatedAmount: (_negotiate || !_isFixed) ? _negotiatedPrice : null,
     );
     if (!mounted) return;
     setState(() => _loading = false);
@@ -676,16 +678,37 @@ class _Step2 extends StatelessWidget {
     ('LARGE', 'Large', '240L', 70),
   ];
 
-  Widget _negotiatedCard() => HCard(
+  /// The price the household agreed with the collector. Required for every
+  /// negotiated booking; shown to the collector and charged after the pickup.
+  Widget _agreedPriceCard() => HCard(
         color: HouseholdColors.primary.withAlpha(16),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(PhosphorIcons.handshake(), color: HouseholdColors.primary, size: 22),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Price agreed on arrival', style: HouseholdType.section.copyWith(color: HouseholdColors.primary)),
-            const SizedBox(height: 2),
-            Text('No fixed charge — your collector proposes a price on arrival, you confirm it, then pay securely in the app (MoMo/card) or with cash.', style: HouseholdType.caption),
-          ])),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(PhosphorIcons.handshake(), color: HouseholdColors.primary, size: 22),
+            const SizedBox(width: 12),
+            Expanded(child: Text('Enter agreed price', style: HouseholdType.section.copyWith(color: HouseholdColors.primary))),
+          ]),
+          const SizedBox(height: 8),
+          Text('Enter the amount you agreed with your collector. They see it before accepting, and you pay it in the app after the pickup.',
+              style: HouseholdType.caption),
+          const SizedBox(height: 16),
+          TextField(
+            controller: negotiatedPriceCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            style: HouseholdType.title.copyWith(fontSize: 28),
+            onChanged: (v) => onNegotiatedPriceChanged(double.tryParse(v.trim())),
+            decoration: InputDecoration(
+              prefixText: 'GHS ',
+              prefixStyle: HouseholdType.title.copyWith(fontSize: 28, color: HouseholdColors.primary),
+              hintText: '0.00',
+              filled: true,
+              fillColor: HouseholdColors.card,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: HouseholdColors.primary)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: HouseholdColors.primary)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: HouseholdColors.primary, width: 2)),
+            ),
+          ),
         ]),
       );
 
@@ -733,7 +756,7 @@ class _Step2 extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        _negotiatedCard(),
+        _agreedPriceCard(),
       ]),
     );
   }
@@ -820,9 +843,9 @@ class _Step2 extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('How it works', style: HouseholdType.title),
         const SizedBox(height: 6),
-        Text('Recyclables and special waste are priced by your collector.', style: HouseholdType.caption),
+        Text('Recyclables and special waste are priced with your collector. Enter the price you agreed.', style: HouseholdType.caption),
         const SizedBox(height: 20),
-        _negotiatedCard(),
+        _agreedPriceCard(),
         const SizedBox(height: 20),
         _photoSection(context, isRequired: false),
       ]),
@@ -905,37 +928,7 @@ class _Step2 extends StatelessWidget {
 
         // Negotiate price input — shown when negotiate is selected
         if (isNegotiated) ...[
-          HCard(
-            color: HouseholdColors.primary.withAlpha(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Icon(PhosphorIcons.handshake(), color: HouseholdColors.primary, size: 22),
-                const SizedBox(width: 12),
-                Expanded(child: Text('Enter agreed price', style: HouseholdType.section.copyWith(color: HouseholdColors.primary))),
-              ]),
-              const SizedBox(height: 8),
-              Text('Enter the amount you agreed with your collector. This will be shown to them when they receive your request.',
-                  style: HouseholdType.caption),
-              const SizedBox(height: 16),
-              TextField(
-                controller: negotiatedPriceCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: HouseholdType.title.copyWith(fontSize: 28),
-                onChanged: (v) => onNegotiatedPriceChanged(double.tryParse(v)),
-                decoration: InputDecoration(
-                  prefixText: 'GHS ',
-                  prefixStyle: HouseholdType.title.copyWith(fontSize: 28, color: HouseholdColors.primary),
-                  hintText: '0.00',
-                  filled: true,
-                  fillColor: HouseholdColors.card,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: HouseholdColors.primary)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: HouseholdColors.primary)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: HouseholdColors.primary, width: 2)),
-                ),
-              ),
-            ]),
-          ),
+          _agreedPriceCard(),
           const SizedBox(height: 24),
         ],
 

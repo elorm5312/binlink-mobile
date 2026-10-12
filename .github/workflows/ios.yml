@@ -65,6 +65,7 @@ jobs:
         run: |
           set -e
           sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = [^;]*binlinkMobile;/PRODUCT_BUNDLE_IDENTIFIER = com.binlink.eco;/' ios/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;/ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-household";/' ios/Runner.xcodeproj/project.pbxproj
           /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName BinLink Eco" ios/Runner/Info.plist
           xcode-project use-profiles
           flutter build ipa --release -t lib/main_household.dart \
@@ -78,6 +79,8 @@ jobs:
         run: |
           set -e
           sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = com.binlink.eco;/PRODUCT_BUNDLE_IDENTIFIER = com.binlink.collector;/' ios/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-household";/ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-collector";/' ios/Runner.xcodeproj/project.pbxproj
+          grep -c 'AppIcon-collector' ios/Runner.xcodeproj/project.pbxproj
           /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName BinLink Collector" ios/Runner/Info.plist
           xcode-project use-profiles
           flutter build ipa --release -t lib/main_collector.dart \

@@ -271,7 +271,7 @@ class AuthProvider extends ChangeNotifier {
     // hang indefinitely, which stalled login before the exchange ever ran.
     final fcmToken = await FirebaseMessaging.instance
         .getToken()
-        .timeout(const Duration(seconds: 5))
+        .timeout(const Duration(seconds: 2))
         .catchError((_) => null);
     final body = <String, dynamic>{
       'firebaseToken': idToken,
