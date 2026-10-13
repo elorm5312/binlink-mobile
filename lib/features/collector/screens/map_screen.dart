@@ -15,6 +15,9 @@ import 'collector_notifications_screen.dart';
 import 'earnings_screen.dart';
 import 'pickups_screen.dart';
 import 'package:binlink_mobile/shared/components/profile_completion_sheet.dart';
+import 'package:binlink_mobile/shared/components/pending_payment_banner.dart';
+import 'package:binlink_mobile/core/utils/json_num.dart';
+import 'awaiting_payment_screen.dart';
 
 class CollectorMapScreen extends StatefulWidget {
   const CollectorMapScreen({super.key});
@@ -35,6 +38,8 @@ class _CollectorMapScreenState extends State<CollectorMapScreen> with WidgetsBin
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _init();
+    // Payment confirmed → refresh so the pending-payment banner disappears.
+    SocketService.on('booking:paid', _onPaid);
     // Socket backup: while online, re-check open jobs every 15 s.
     _jobPoll = Timer.periodic(const Duration(seconds: 15), (_) {
       if (!mounted) return;
@@ -49,9 +54,36 @@ class _CollectorMapScreenState extends State<CollectorMapScreen> with WidgetsBin
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    SocketService.offHandler('booking:paid', _onPaid);
     _jobPoll?.cancel();
     _sub?.cancel();
     super.dispose();
+  }
+
+  /// Completed jobs the household hasn't paid for yet.
+  Widget? _pendingPaymentBanner(CollectorProvider prov) {
+    final unpaid = unpaidCompleted(prov.completedPickups);
+    if (unpaid.isEmpty) return null;
+    final b = unpaid.first;
+    final amount = jsonDouble(b['totalAmount']) ?? 0;
+    final who = (b['household'] as Map?)?['fullName'] as String?;
+    return PendingPaymentBanner(
+      title: unpaid.length == 1
+          ? 'Pending payment · GHS ${amount.toStringAsFixed(2)}'
+          : '${unpaid.length} pending payments',
+      subtitle: who != null ? "$who hasn't paid yet" : "The customer hasn't paid yet",
+      actionLabel: 'VIEW',
+      background: CollectorColors.warning,
+      foreground: const Color(0xFF1A1205),
+      accent: const Color(0xFF1A1205),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => AwaitingPaymentScreen(bookingId: b['id'] as String, amount: amount),
+      )),
+    );
+  }
+
+  void _onPaid(dynamic _) {
+    if (mounted) context.read<CollectorProvider>().loadDashboard();
   }
 
   @override
@@ -62,6 +94,7 @@ class _CollectorMapScreenState extends State<CollectorMapScreen> with WidgetsBin
     final prov = context.read<CollectorProvider>();
     prov.syncOnlineFromServer();
     prov.refreshAvailableJobs();
+    prov.loadDashboard();
   }
 
   Future<void> _init() async {
@@ -91,15 +124,18 @@ class _CollectorMapScreenState extends State<CollectorMapScreen> with WidgetsBin
         Scaffold(
           backgroundColor: CollectorColors.dark,
           extendBody: true,
-          body: IndexedStack(
-            index: _index,
-            children: [
-              CollectorMapTab(pos: _pos),
-              const PickupsScreen(),
-              const EarningsScreen(),
-              const CollectorNotificationsScreen(),
-              const CollectorProfileTab(),
-            ],
+          body: TopBannerScaffoldBody(
+            banner: _pendingPaymentBanner(prov),
+            child: IndexedStack(
+              index: _index,
+              children: [
+                CollectorMapTab(pos: _pos),
+                const PickupsScreen(),
+                const EarningsScreen(),
+                const CollectorNotificationsScreen(),
+                const CollectorProfileTab(),
+              ],
+            ),
           ),
           bottomNavigationBar: CBottomNav(
             index: _index,

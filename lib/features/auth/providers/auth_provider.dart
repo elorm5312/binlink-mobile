@@ -13,6 +13,7 @@ import '../../../core/services/offline_action_queue_service.dart';
 import '../../../core/config/app_flavor.dart';
 import '../../../core/config/firebase_ios_options.dart';
 import '../../../shared/models/user_model.dart';
+import '../../../core/services/payment_due_notifier.dart';
 
 enum AuthStatus { unknown, authenticated, unauthenticated }
 
@@ -211,6 +212,7 @@ class AuthProvider extends ChangeNotifier {
       await _googleSignIn.signOut();
     } catch (_) {}
     SocketService.disconnect();
+    await PaymentDueNotifier.clear();
     await SecureStorage.clearAll();
     _user = null;
     _status = AuthStatus.unauthenticated;

@@ -18,6 +18,9 @@ import 'tracking_screen.dart';
 import 'wallet_screen.dart';
 import 'package:binlink_mobile/shared/components/profile_completion_sheet.dart';
 import 'package:binlink_mobile/core/network/socket_service.dart';
+import 'package:binlink_mobile/shared/components/pending_payment_banner.dart';
+import 'package:binlink_mobile/core/utils/json_num.dart';
+import 'payment_screen.dart';
 
 class HouseholdHomeScreen extends StatefulWidget {
   const HouseholdHomeScreen({super.key});
@@ -50,6 +53,25 @@ class _HouseholdHomeScreenState extends State<HouseholdHomeScreen> with WidgetsB
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) ProfileCompletion.ensure(context);
     });
+  }
+
+  Widget? _paymentDueBanner(List<Map<String, dynamic>> unpaid) {
+    if (unpaid.isEmpty) return null;
+    final b = unpaid.first;
+    final amount = jsonDouble(b['totalAmount']) ?? 0;
+    return PendingPaymentBanner(
+      title: 'Make payment now · GHS ${amount.toStringAsFixed(2)}',
+      subtitle: unpaid.length == 1
+          ? 'Your pickup is complete'
+          : '${unpaid.length} completed pickups to pay for',
+      actionLabel: 'PAY NOW',
+      background: const Color(0xFFF59E0B),
+      foreground: const Color(0xFF1A1205),
+      accent: const Color(0xFF1A1205),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => PaymentScreen(booking: Map<String, dynamic>.from(b)),
+      )),
+    );
   }
 
   void _onPaid(dynamic _) {
@@ -176,15 +198,18 @@ class _HouseholdHomeScreenState extends State<HouseholdHomeScreen> with WidgetsB
     return Scaffold(
       backgroundColor: HouseholdColors.sand,
       extendBody: true,
-      body: IndexedStack(
-        index: _index,
-        children: [
-          HomeTab(myPos: _myPos, onTabSwitch: (i) => setState(() => _index = i)),
-          const _PickupsTab(),
-          const WalletScreen(),
-          const HistoryTab(),
-          const ProfileTab(),
-        ],
+      body: TopBannerScaffoldBody(
+        banner: _paymentDueBanner(context.watch<HouseholdProvider>().unpaidPayments),
+        child: IndexedStack(
+          index: _index,
+          children: [
+            HomeTab(myPos: _myPos, onTabSwitch: (i) => setState(() => _index = i)),
+            const _PickupsTab(),
+            const WalletScreen(),
+            const HistoryTab(),
+            const ProfileTab(),
+          ],
+        ),
       ),
       bottomNavigationBar: HBottomNav(
         index: _index,

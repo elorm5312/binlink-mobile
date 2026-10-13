@@ -7,6 +7,8 @@ import '../../../core/gps/kalman_filter.dart';
 import '../../../shared/models/app_notification.dart';
 import '../../../shared/models/reward_models.dart';
 import 'package:binlink_mobile/core/utils/json_num.dart';
+import 'package:binlink_mobile/core/services/payment_due_notifier.dart';
+import 'package:binlink_mobile/shared/components/pending_payment_banner.dart';
 
 // Zone event type constants
 const _kZoneMove    = 'move';
@@ -44,6 +46,9 @@ class HouseholdProvider extends ChangeNotifier {
 
   // All bookings (for history + subscriptions display)
   List<Map<String, dynamic>> get allBookings => List.unmodifiable(_bookings);
+
+  /// Completed pickups not yet paid (newest first).
+  List<Map<String, dynamic>> get unpaidPayments => unpaidCompleted(_bookings);
 
   List<AppNotification> _notifications = [];
   int _unreadNotifications = 0;
@@ -95,6 +100,8 @@ class HouseholdProvider extends ChangeNotifier {
       );
       if (_activeBooking?.isEmpty == true) _activeBooking = null;
       _error = null;
+      // Keep the "Make payment now" notification in step with what is owed.
+      PaymentDueNotifier.sync(unpaidPayments);
     } on DioException catch (e) {
       _error = e.response?.data?['error'] ?? 'Failed to load bookings';
     } finally {
