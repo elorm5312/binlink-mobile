@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/design_system/household_design_system.dart';
+import '../../../shared/components/skeleton.dart';
 import '../providers/household_provider.dart';
 
 /// Referral program — share a code, both sides earn wallet credit.
@@ -63,7 +64,14 @@ class _ReferralScreenState extends State<ReferralScreen> {
         title: Text('Invite & earn', style: HouseholdType.title),
       ),
       body: _loading
-          ? Center(child: CircularProgressIndicator(color: HouseholdColors.primary))
+          ? const Padding(
+              padding: EdgeInsets.all(20),
+              child: Column(children: [
+                Skeleton(height: 180, radius: 24),
+                SizedBox(height: 16),
+                SkeletonList(count: 3, itemHeight: 72),
+              ]),
+            )
           : ListView(padding: const EdgeInsets.all(20), children: [
               HCard(
                 padding: const EdgeInsets.all(24),

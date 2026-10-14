@@ -5,6 +5,7 @@ import '../../core/config/app_flavor.dart';
 import '../../core/network/api_client.dart';
 import '../../core/design_system/collector_design_system.dart';
 import '../../core/design_system/household_design_system.dart';
+import '../components/skeleton.dart';
 import 'chat_screen.dart';
 
 /// Inbox of the user's chat threads (one per booking that has messages), for
@@ -104,7 +105,12 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   Widget _buildBody() {
-    if (_loading) return Center(child: CircularProgressIndicator(color: _accent));
+    if (_loading) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+        child: SkeletonList(count: 6, itemHeight: 72, dark: _collector),
+      );
+    }
     if (_error != null) {
       return _centered(PhosphorIcons.warningCircle(), _error!, action: 'Retry', onAction: () {
         setState(() => _loading = true);

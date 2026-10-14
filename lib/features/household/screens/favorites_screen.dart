@@ -3,6 +3,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/design_system/household_design_system.dart';
+import '../../../shared/components/skeleton.dart';
 import '../providers/household_provider.dart';
 import 'book_screen.dart';
 import 'package:binlink_mobile/core/utils/json_num.dart';
@@ -83,7 +84,10 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
 
   Widget _body(HouseholdProvider prov, List<Map<String, dynamic>> favorites) {
     if (_loading) {
-      return Center(child: CircularProgressIndicator(color: HouseholdColors.primary));
+      return const Padding(
+        padding: EdgeInsets.fromLTRB(20, 8, 20, 20),
+        child: SkeletonList(count: 5, itemHeight: 78),
+      );
     }
     if (favorites.isEmpty) {
       return Center(
