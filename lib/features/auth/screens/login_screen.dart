@@ -77,7 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 12),
-                SvgPicture.asset(HouseholdAssets.loginHero, height: 210),
+                Image.asset(HouseholdAssets.loginHero, height: 210, fit: BoxFit.contain),
                 const SizedBox(height: 18),
                 Text('Welcome back', style: HouseholdType.hero),
                 const SizedBox(height: 8),

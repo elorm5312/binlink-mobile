@@ -32,7 +32,7 @@ class HouseholdAssets {
   static const searching       = '$root/tracking/searching_collector.svg';
   static const arriving        = '$root/tracking/collector_arriving.svg';
   static const complete        = '$root/illustrations/pickup_complete.png';
-  static const networkError    = '$root/errors/network_error.svg';
+  static const networkError    = '$root/errors/network_error.png';
 
   // Wallet & rewards (PNG — from GPT Image)
   static const ecoPoints       = '$root/wallet/eco_points.png';
@@ -43,8 +43,8 @@ class HouseholdAssets {
   // Empty states
   static const noPickups       = '$root/empty_states/no_pickups.png';
   static const noWallet        = '$root/empty_states/no_wallet.svg';
-  static const noHistory       = '$root/empty_states/no_history.svg';
-  static const noNotifications = '$root/empty_states/no_notifications.svg';
+  static const noHistory       = '$root/empty_states/no_history.png';
+  static const noNotifications = '$root/empty_states/no_notifications.png';
   static const noData          = '$root/empty_states/no_data.svg';
 
   // Waste category chips (SVG — flat design icons, BinLink palette)

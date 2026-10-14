@@ -234,7 +234,7 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
             child: Center(
               child: CPanel(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  SvgPicture.asset('assets/collector_assets/errors/location_permission.svg', height: 180),
+                  Image.asset('assets/collector_assets/errors/location_permission.png', height: 180, fit: BoxFit.contain),
                   const SizedBox(height: 12),
                   Text('Route unavailable', style: CollectorType.title),
                   const SizedBox(height: 8),

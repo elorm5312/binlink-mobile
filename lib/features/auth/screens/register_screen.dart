@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/config/app_flavor.dart';
@@ -74,7 +73,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               key: _formKey,
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 IconButton(onPressed: () => Navigator.maybePop(context), icon: HIcon('route', color: HouseholdColors.forest)),
-                SvgPicture.asset(HouseholdAssets.registerHero, height: 190),
+                Image.asset(HouseholdAssets.registerHero, height: 190, fit: BoxFit.contain),
                 const SizedBox(height: 16),
                 Text('Create your account', style: HouseholdType.hero),
                 const SizedBox(height: 8),
@@ -108,7 +107,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               key: _formKey,
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 IconButton(onPressed: () => Navigator.maybePop(context), icon: CIcon('route', color: CollectorColors.white)),
-                SvgPicture.asset(CollectorAssets.welcome, height: 190),
+                Image.asset(CollectorAssets.welcome, height: 190, fit: BoxFit.contain),
                 const SizedBox(height: 20),
                 Text('Collector registration', style: CollectorType.hero),
                 const SizedBox(height: 10),

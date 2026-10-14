@@ -259,7 +259,7 @@ class _PickupsTab extends StatelessWidget {
           else if (provider.error != null)
             const _HouseholdEmpty(asset: HouseholdAssets.networkError, title: 'Could not load pickups', copy: 'Unable to load pickups right now.')
           else if (bookings.isEmpty)
-            const _HouseholdEmpty(asset: 'assets/household_assets/empty_states/no_history.svg', title: 'No pickups yet', copy: 'Book your first pickup from the map and track the collector live.')
+            const _HouseholdEmpty(asset: HouseholdAssets.noPickups, title: 'No pickups yet', copy: 'Book your first pickup from the map and track the collector live.')
           else
             ...bookings.map((b) => _PickupCard(booking: b)),
         ],
@@ -308,7 +308,12 @@ class _HouseholdEmpty extends StatelessWidget {
   Widget build(BuildContext context) {
     return HCard(
       child: Column(children: [
-        SizedBox(height: 190, child: SvgPicture.asset(asset)),
+        SizedBox(
+          height: 190,
+          child: asset.endsWith('.svg')
+              ? SvgPicture.asset(asset)
+              : Image.asset(asset, fit: BoxFit.contain),
+        ),
         Text(title, style: HouseholdType.title, textAlign: TextAlign.center),
         const SizedBox(height: 8),
         Text(copy, style: HouseholdType.body.copyWith(color: HouseholdColors.gray), textAlign: TextAlign.center),

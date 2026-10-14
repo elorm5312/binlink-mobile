@@ -96,7 +96,7 @@ class _CollectorNotificationsScreenState extends State<CollectorNotificationsScr
             if (_loading)
               const SkeletonList(count: 4, dark: true)
             else if (_error != null)
-              _CollectorStateCard(title: 'Notifications unavailable', copy: _error!, asset: 'assets/collector_assets/errors/server_error.svg', onRetry: _load)
+              _CollectorStateCard(title: 'Notifications unavailable', copy: _error!, asset: 'assets/collector_assets/errors/server_error.png', onRetry: _load)
             else if (count == 0)
               _CollectorStateCard(title: 'No notifications yet', copy: 'New jobs, payouts, and reviews will appear here.', asset: 'assets/collector_assets/empty_states/no_notifications.svg', onRetry: _load)
             else ...[
@@ -322,7 +322,7 @@ class _CollectorPrivacyScreenState extends State<CollectorPrivacyScreen> {
     return _CollectorFormScreen(
       title: 'Privacy',
       copy: 'Location sharing, profile data, job records, payout data, and account security.',
-      asset: 'assets/collector_assets/errors/location_permission.svg',
+      asset: 'assets/collector_assets/errors/location_permission.png',
       loading: _loading,
       success: _success,
       child: Column(children: [
@@ -1239,7 +1239,9 @@ class _CollectorStateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return CPanel(
       child: Column(children: [
-        SvgPicture.asset(asset, height: 190),
+        asset.endsWith('.svg')
+            ? SvgPicture.asset(asset, height: 190)
+            : Image.asset(asset, height: 190, fit: BoxFit.contain),
         Text(title, style: CollectorType.title),
         const SizedBox(height: 8),
         Text(copy, textAlign: TextAlign.center, style: CollectorType.body.copyWith(color: const Color(0xFFC8D0DA))),

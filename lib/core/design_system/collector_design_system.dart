@@ -23,7 +23,7 @@ class CollectorAssets {
 
   // Empty states
   static const noJobs          = '$root/empty_states/no_jobs.png';
-  static const noNotifications = '$root/empty_states/no_notifications.svg';
+  static const noNotifications = '$root/empty_states/no_notifications.png';
 
   // Fleet icons (PNG — from GPT Image)
   static const fleetMiniTruck  = '$root/icons/fleet/fleet_mini_truck.png';
@@ -37,7 +37,7 @@ class CollectorAssets {
   static const wallet          = '$root/earnings/wallet.svg';
   static const earningsBonus   = '$root/earnings/bonus.svg';
   static const earningsHistory = '$root/earnings/history.svg';
-  static const noTransactions  = '$root/empty_states/no_transactions.svg';
+  static const noTransactions  = '$root/empty_states/no_transactions.png';
 
   // Map markers (PNG)
   static const truckMarker         = '$root/map_markers/truck_marker.png';

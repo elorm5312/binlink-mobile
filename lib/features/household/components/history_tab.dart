@@ -39,14 +39,14 @@ class HistoryTab extends StatelessWidget {
             const SkeletonList(count: 4)
           else if (provider.error != null)
             HCard(child: Column(children: [
-              SvgPicture.asset(HouseholdAssets.networkError, height: 210),
+              Image.asset(HouseholdAssets.networkError, height: 210, fit: BoxFit.contain),
               Text('History unavailable', style: HouseholdType.title),
               const SizedBox(height: 8),
               Text(provider.error!, textAlign: TextAlign.center, style: HouseholdType.body.copyWith(color: HouseholdColors.gray)),
             ]))
           else if (bookings.isEmpty)
             HCard(child: Column(children: [
-              SvgPicture.asset(HouseholdAssets.noHistory, height: 210),
+              Image.asset(HouseholdAssets.noHistory, height: 210, fit: BoxFit.contain),
               Text('No history yet', style: HouseholdType.title),
               const SizedBox(height: 8),
               Text('Completed pickups and receipts will appear here.', textAlign: TextAlign.center, style: HouseholdType.body.copyWith(color: HouseholdColors.gray)),

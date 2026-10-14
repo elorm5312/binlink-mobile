@@ -1250,7 +1250,9 @@ class _StateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return HCard(
       child: Column(children: [
-        SvgPicture.asset(asset, height: 190),
+        asset.endsWith('.svg')
+            ? SvgPicture.asset(asset, height: 190)
+            : Image.asset(asset, height: 190, fit: BoxFit.contain),
         Text(title, style: HouseholdType.title),
         const SizedBox(height: 8),
         Text(copy, textAlign: TextAlign.center, style: HouseholdType.body.copyWith(color: HouseholdColors.gray)),
