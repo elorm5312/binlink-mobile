@@ -403,6 +403,7 @@ class _BookScreenState extends State<BookScreen> {
                 ),
                 _Step5(
                   category: _category,
+                  isNegotiated: _negotiate || !_isFixed,
                   bulkyPhotoCount: _bulkyPhotos.length,
                   binSize: _binSize,
                   extraBags: _extraBags,
@@ -1258,6 +1259,7 @@ class _Step4 extends StatelessWidget {
 class _Step5 extends StatelessWidget {
   const _Step5({
     required this.category,
+    required this.isNegotiated,
     required this.bulkyPhotoCount,
     required this.binSize,
     required this.extraBags,
@@ -1278,6 +1280,7 @@ class _Step5 extends StatelessWidget {
     this.error,
   });
   final String category;
+  final bool isNegotiated;
   final int bulkyPhotoCount;
   final String binSize;
   final int extraBags;
@@ -1302,7 +1305,10 @@ class _Step5 extends StatelessWidget {
     return m[c] ?? c;
   }
 
-  bool get _fixed => category == 'HOUSEHOLD';
+  // Fixed (bin-size) pricing only when NOT negotiated. A household booking with
+  // the negotiate toggle on is still 'HOUSEHOLD' but must be treated as
+  // negotiated here — otherwise Review & Pay shows a bin + a wrong total.
+  bool get _fixed => !isNegotiated;
 
   static String _binLabel(String b) => b[0] + b.substring(1).toLowerCase();
 
@@ -1342,7 +1348,7 @@ class _Step5 extends StatelessWidget {
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('Price agreed on arrival', style: HouseholdType.section.copyWith(color: HouseholdColors.primary)),
                 const SizedBox(height: 2),
-                Text('Your collector will agree a fair price with you before collecting. Pay them directly — cash or MoMo — on pickup.', style: HouseholdType.caption),
+                Text('No price now. When your collector arrives you both agree the amount and confirm it in the app — then you pay it here after the pickup.', style: HouseholdType.caption),
               ])),
             ]),
           ),
