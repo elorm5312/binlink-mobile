@@ -22,7 +22,7 @@ class CollectorAssets {
   static const offline         = '$root/illustrations/collector_offline.png';
 
   // Empty states
-  static const noJobs          = '$root/empty_states/no_jobs.svg';
+  static const noJobs          = '$root/empty_states/no_jobs.png';
   static const noNotifications = '$root/empty_states/no_notifications.svg';
 
   // Fleet icons (PNG — from GPT Image)

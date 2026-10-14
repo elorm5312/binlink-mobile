@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/design_system/collector_design_system.dart';
@@ -36,7 +35,7 @@ class _PickupsScreenState extends State<PickupsScreen> {
             const SizedBox(height: 20),
             if (jobs.isEmpty)
               CPanel(child: Column(children: [
-                SvgPicture.asset(CollectorAssets.noJobs, height: 210),
+                Image.asset(CollectorAssets.noJobs, height: 210, fit: BoxFit.contain),
                 Text('No jobs available', style: CollectorType.title),
                 const SizedBox(height: 8),
                 Text('Go online from the map to receive new requests.', textAlign: TextAlign.center, style: CollectorType.caption),

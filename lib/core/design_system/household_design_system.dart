@@ -12,17 +12,18 @@ class HouseholdAssets {
   static const logo            = '$root/branding/binlink_logo.png';
   static const appIcon         = '$root/branding/app_icon.png';
 
-  // Onboarding (SVG — flat design, BinLink palette)
-  static const cleanCity       = '$root/onboarding/clean_city.svg';
-  static const bookPickup      = '$root/onboarding/book_pickup.svg';
-  static const trackCollectors = '$root/onboarding/track_collectors.svg';
-  static const earnRewards     = '$root/onboarding/earn_rewards.svg';
+  // Onboarding (PNG — illustrated set, BinLink palette)
+  static const cleanCity       = '$root/onboarding/clean_city.png';
+  static const bookPickup      = '$root/onboarding/book_pickup.png';
+  static const trackCollectors = '$root/onboarding/track_collectors.png';
+  static const earnRewards     = '$root/onboarding/earn_rewards.png';
 
   // Illustrations (PNG — GPT Image)
   static const pickupComplete  = '$root/illustrations/pickup_complete.png';
   static const loginHero       = '$root/illustrations/login_hero.png';
   static const registerHero    = '$root/illustrations/register_hero.png';
   static const otpVerify       = '$root/illustrations/otp_verification.png';
+  static const negotiateArrival = '$root/illustrations/negotiate_arrival.png';
 
   // SVG illustrations (replace with PNG when GPT assets arrive)
   static const liveMap         = '$root/illustrations/live_map.svg';

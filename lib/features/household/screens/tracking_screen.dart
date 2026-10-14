@@ -35,6 +35,9 @@ class _TrackingScreenState extends State<TrackingScreen> {
   double _collectorBearing = 0.0;
   ll.LatLng? _prevCollectorPos;
   bool _arrivingBuzzed = false;
+  // The proposal amount we've already auto-opened the confirm sheet for, so a
+  // rebuild doesn't reopen it; re-arms if the collector proposes a new amount.
+  double? _negPromptedProposal;
   // Captured in initState: looking up providers from dispose() throws.
   late final HouseholdProvider _prov;
 
@@ -102,6 +105,17 @@ class _TrackingScreenState extends State<TrackingScreen> {
     final collectorLng = prov.collectorLng;
 
     final collector = (prov.activeBooking?['collector'] as Map<String, dynamic>?) ?? (_booking['collector'] as Map<String, dynamic>?);
+
+    // Auto-open the confirm-price sheet the moment the collector proposes a
+    // negotiated amount on arrival, so both sides lock in the agreed price.
+    final negStatus = (prov.activeBooking?['negotiatedStatus'] ?? _booking['negotiatedStatus']) as String?;
+    final negProposal = jsonDouble(prov.activeBooking?['negotiatedProposal'] ?? _booking['negotiatedProposal']);
+    if (negStatus == 'PROPOSED' && negProposal != null && _negPromptedProposal != negProposal) {
+      _negPromptedProposal = negProposal;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _confirmNegotiation(context, prov, negProposal);
+      });
+    }
 
     // Derive travel heading from consecutive positions so the truck points
     // the way it's driving (like Uber/Bolt).
@@ -250,6 +264,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
       builder: (sheetCtx) => Padding(
         padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.viewInsetsOf(sheetCtx).bottom + 20),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Center(child: Image.asset(HouseholdAssets.negotiateArrival, height: 120, fit: BoxFit.contain)),
+          const SizedBox(height: 10),
           Text('Confirm agreed price', style: HouseholdType.title),
           const SizedBox(height: 6),
           Text('Your collector proposed GHS ${proposal.toStringAsFixed(2)}. Confirm or adjust the amount you both agreed on.',
@@ -617,6 +633,10 @@ class _BottomCard extends StatelessWidget {
               Expanded(child: _StatusLabel(status: status)),
               if (etaMinutes != null) _EtaPill(minutes: etaMinutes!),
             ]),
+            if (status != 'CANCELLED') ...[
+              const SizedBox(height: 16),
+              _StatusTimeline(status: status),
+            ],
             const SizedBox(height: 16),
 
             // Collector row
@@ -736,6 +756,117 @@ class _BottomCard extends StatelessWidget {
           ]),
         ),
       ]),
+    );
+  }
+}
+
+/// Animated progress rail for the live pickup: Searching → On the way →
+/// Arrived → Collecting → Done. Passed steps show a green check, the current
+/// step pulses, and the connectors fill as the pickup advances.
+class _StatusTimeline extends StatefulWidget {
+  const _StatusTimeline({required this.status});
+  final String status;
+
+  @override
+  State<_StatusTimeline> createState() => _StatusTimelineState();
+}
+
+class _StatusTimelineState extends State<_StatusTimeline> with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat(reverse: true);
+
+  static const _stepCount = 5;
+
+  int get _current {
+    switch (widget.status) {
+      case 'SEARCHING':
+      case 'ASSIGNED':
+        return 0;
+      case 'ACCEPTED':
+      case 'ON_THE_WAY':
+      case 'EN_ROUTE':
+        return 1;
+      case 'ARRIVED':
+        return 2;
+      case 'COLLECTING':
+        return 3;
+      case 'COMPLETED':
+      case 'COLLECTED':
+        return 4;
+      default:
+        return 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cur = _current;
+    final active = HouseholdColors.primary;
+    final idle = HouseholdColors.border;
+    return SizedBox(
+      height: 24,
+      child: Row(
+        children: List.generate(_stepCount * 2 - 1, (i) {
+          if (i.isOdd) {
+            final done = (i ~/ 2) < cur;
+            return Expanded(
+              child: Container(
+                height: 3,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                decoration: BoxDecoration(color: done ? active : idle, borderRadius: BorderRadius.circular(2)),
+              ),
+            );
+          }
+          final node = i ~/ 2;
+          return _node(passed: node < cur, isActive: node == cur, active: active, idle: idle);
+        }),
+      ),
+    );
+  }
+
+  Widget _node({required bool passed, required bool isActive, required Color active, required Color idle}) {
+    if (isActive) {
+      return AnimatedBuilder(
+        animation: _c,
+        builder: (_, __) {
+          final t = _c.value;
+          return SizedBox(
+            width: 24,
+            height: 24,
+            child: Stack(alignment: Alignment.center, children: [
+              Container(
+                width: 12 + 12 * t,
+                height: 12 + 12 * t,
+                decoration: BoxDecoration(shape: BoxShape.circle, color: active.withAlpha((60 * (1 - t)).round())),
+              ),
+              Container(
+                width: 13,
+                height: 13,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: active,
+                  boxShadow: [BoxShadow(color: active.withAlpha(120), blurRadius: 6)],
+                ),
+              ),
+            ]),
+          );
+        },
+      );
+    }
+    return SizedBox(
+      width: 24,
+      height: 24,
+      child: Center(
+        child: passed
+            ? Icon(PhosphorIcons.checkCircle(PhosphorIconsStyle.fill), size: 17, color: active)
+            : Container(width: 11, height: 11, decoration: BoxDecoration(shape: BoxShape.circle, color: idle)),
+      ),
     );
   }
 }
@@ -1070,26 +1201,63 @@ class _SearchAnim extends StatefulWidget {
 }
 
 class _SearchAnimState extends State<_SearchAnim> with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat(reverse: true);
+  late final AnimationController _ctrl =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 1700))..repeat();
 
   @override
   void dispose() { _ctrl.dispose(); super.dispose(); }
 
+  /// A radar sweep: three green rings expand and fade outward from a glowing
+  /// centre pin, like a phone scanning for nearby drivers.
+  Widget _radar() {
+    final primary = HouseholdColors.primary;
+    return SizedBox(
+      width: 56,
+      height: 56,
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (_, __) {
+          return Stack(alignment: Alignment.center, children: [
+            for (int i = 0; i < 3; i++)
+              Builder(builder: (_) {
+                final t = (_ctrl.value + i / 3) % 1.0;
+                final size = 14.0 + 42.0 * t;
+                return Container(
+                  width: size,
+                  height: size,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: primary.withAlpha((110 * (1 - t)).round()), width: 2),
+                  ),
+                );
+              }),
+            Container(
+              width: 15,
+              height: 15,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: primary,
+                boxShadow: [BoxShadow(color: primary.withAlpha(130), blurRadius: 8)],
+              ),
+            ),
+          ]);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: Tween<double>(begin: 0.4, end: 1.0).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut)),
-      child: Row(children: [
-        SvgPicture.asset(HouseholdAssets.searching, height: 44, width: 56),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Searching for a collector', style: HouseholdType.section),
-            Text('Finding the nearest available driver.', style: HouseholdType.caption),
-          ]),
-        ),
-      ]),
-    );
+    return Row(children: [
+      _radar(),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Searching for a collector', style: HouseholdType.section),
+          Text('Finding the nearest available driver.', style: HouseholdType.caption),
+        ]),
+      ),
+    ]);
   }
 }
 

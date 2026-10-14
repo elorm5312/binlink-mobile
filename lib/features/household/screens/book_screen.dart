@@ -52,8 +52,6 @@ class _BookScreenState extends State<BookScreen> {
   // Household chose to negotiate instead of fixed bin pricing (loose refuse,
   // over-heaped bins, rubbish lying around). Price is entered here by the user.
   bool _negotiate = false;
-  final _negotiatedPriceCtrl = TextEditingController();
-  double? _negotiatedPrice;
 
   // Step 2 — bulky items (photos so the collector can see the load)
   final List<XFile> _bulkyPhotos = [];
@@ -104,7 +102,6 @@ class _BookScreenState extends State<BookScreen> {
     _notesCtrl.dispose();
     _promoCtrl.dispose();
     _bulkyDescCtrl.dispose();
-    _negotiatedPriceCtrl.dispose();
     super.dispose();
   }
 
@@ -172,10 +169,9 @@ class _BookScreenState extends State<BookScreen> {
   bool get _canNext {
     switch (_step) {
       case 1:
-        // If negotiate is selected, require a price to be entered
-        // Every negotiated booking (non-bin categories, or bins with negotiate on)
-        // needs the agreed price.
-        if ((_negotiate || !_isFixed) && (_negotiatedPrice == null || _negotiatedPrice! <= 0)) return false;
+        // Negotiated bookings (non-bin categories, or bins with negotiate on)
+        // no longer need a price up front — it's agreed with the collector on
+        // arrival. Only the bulky-photo requirement gates this step.
         return !_isBulky || _bulkyPhotos.isNotEmpty;
       case 2: return _isImmediate || _scheduledDate != null;
       case 3: return _addrCtrl.text.trim().isNotEmpty;
@@ -257,7 +253,8 @@ class _BookScreenState extends State<BookScreen> {
       promoCode: (_isFixed && !_negotiate) ? _promoCode : null,
       pricingMode: (_isFixed && !_negotiate) ? null : 'NEGOTIATED',
       bulkyPhotos: photoUrls,
-      negotiatedAmount: (_negotiate || !_isFixed) ? _negotiatedPrice : null,
+      // Negotiated price is agreed on arrival, never at booking time.
+      negotiatedAmount: null,
     );
     if (!mounted) return;
     setState(() => _loading = false);
@@ -380,14 +377,9 @@ class _BookScreenState extends State<BookScreen> {
                   isNegotiated: _negotiate,
                   bulkyPhotos: _bulkyPhotos,
                   bulkyDescCtrl: _bulkyDescCtrl,
-                  negotiatedPriceCtrl: _negotiatedPriceCtrl,
                   onBin: (v) => setState(() => _binSize = v),
                   onBags: (v) => setState(() => _extraBags = v),
-                  onNegotiate: (v) => setState(() {
-                    _negotiate = v;
-                    if (!v) _negotiatedPriceCtrl.clear();
-                  }),
-                  onNegotiatedPriceChanged: (v) => setState(() => _negotiatedPrice = v),
+                  onNegotiate: (v) => setState(() => _negotiate = v),
                   onAddPhoto: _pickBulkyPhoto,
                   onRemovePhoto: (i) => setState(() => _bulkyPhotos.removeAt(i)),
                 ),
@@ -650,11 +642,9 @@ class _Step2 extends StatelessWidget {
     required this.isNegotiated,
     required this.bulkyPhotos,
     required this.bulkyDescCtrl,
-    required this.negotiatedPriceCtrl,
     required this.onBin,
     required this.onBags,
     required this.onNegotiate,
-    required this.onNegotiatedPriceChanged,
     required this.onAddPhoto,
     required this.onRemovePhoto,
   });
@@ -664,11 +654,9 @@ class _Step2 extends StatelessWidget {
   final bool isNegotiated;
   final List<XFile> bulkyPhotos;
   final TextEditingController bulkyDescCtrl;
-  final TextEditingController negotiatedPriceCtrl;
   final ValueChanged<String> onBin;
   final ValueChanged<int> onBags;
   final ValueChanged<bool> onNegotiate;
-  final ValueChanged<double?> onNegotiatedPriceChanged;
   final ValueChanged<ImageSource> onAddPhoto;
   final ValueChanged<int> onRemovePhoto;
 
@@ -678,37 +666,20 @@ class _Step2 extends StatelessWidget {
     ('LARGE', 'Large', '240L', 70),
   ];
 
-  /// The price the household agreed with the collector. Required for every
-  /// negotiated booking; shown to the collector and charged after the pickup.
-  Widget _agreedPriceCard() => HCard(
+  /// Negotiated bookings carry no price at booking time. The household and the
+  /// collector agree the amount face-to-face when the collector arrives, then
+  /// both confirm it in the app and payment follows the pickup.
+  Widget _negotiateInfoCard() => HCard(
         color: HouseholdColors.primary.withAlpha(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Icon(PhosphorIcons.handshake(), color: HouseholdColors.primary, size: 22),
             const SizedBox(width: 12),
-            Expanded(child: Text('Enter agreed price', style: HouseholdType.section.copyWith(color: HouseholdColors.primary))),
+            Expanded(child: Text('Price agreed on arrival', style: HouseholdType.section.copyWith(color: HouseholdColors.primary))),
           ]),
           const SizedBox(height: 8),
-          Text('Enter the amount you agreed with your collector. They see it before accepting, and you pay it in the app after the pickup.',
+          Text('No price to enter now. When your collector arrives you both agree the amount and confirm it in the app — then you pay it here after the pickup.',
               style: HouseholdType.caption),
-          const SizedBox(height: 16),
-          TextField(
-            controller: negotiatedPriceCtrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: HouseholdType.title.copyWith(fontSize: 28),
-            onChanged: (v) => onNegotiatedPriceChanged(double.tryParse(v.trim())),
-            decoration: InputDecoration(
-              prefixText: 'GHS ',
-              prefixStyle: HouseholdType.title.copyWith(fontSize: 28, color: HouseholdColors.primary),
-              hintText: '0.00',
-              filled: true,
-              fillColor: HouseholdColors.card,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: HouseholdColors.primary)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: HouseholdColors.primary)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: HouseholdColors.primary, width: 2)),
-            ),
-          ),
         ]),
       );
 
@@ -756,7 +727,7 @@ class _Step2 extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        _agreedPriceCard(),
+        _negotiateInfoCard(),
       ]),
     );
   }
@@ -843,9 +814,9 @@ class _Step2 extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('How it works', style: HouseholdType.title),
         const SizedBox(height: 6),
-        Text('Recyclables and special waste are priced with your collector. Enter the price you agreed.', style: HouseholdType.caption),
+        Text('Recyclables and special waste are priced with your collector — you agree the amount when they arrive.', style: HouseholdType.caption),
         const SizedBox(height: 20),
-        _agreedPriceCard(),
+        _negotiateInfoCard(),
         const SizedBox(height: 20),
         _photoSection(context, isRequired: false),
       ]),
@@ -862,7 +833,7 @@ class _Step2 extends StatelessWidget {
         Text('Volume & Extras', style: HouseholdType.title),
         const SizedBox(height: 6),
         Text(isNegotiated
-            ? 'Enter the price you agreed with your collector.'
+            ? 'You\'ll agree the price with your collector when they arrive.'
             : 'Choose your bin size and any additional bags.',
             style: HouseholdType.caption),
         const SizedBox(height: 20),
@@ -928,7 +899,7 @@ class _Step2 extends StatelessWidget {
 
         // Negotiate price input — shown when negotiate is selected
         if (isNegotiated) ...[
-          _agreedPriceCard(),
+          _negotiateInfoCard(),
           const SizedBox(height: 24),
         ],
 
@@ -966,7 +937,7 @@ class _Step2 extends StatelessWidget {
                   isNegotiated
                       ? 'Tap to switch back to fixed bin pricing.'
                       : 'For refuse not in bins, over-heaped bins, or rubbish just lying around. '
-                        'Agree a price with your collector first, then enter it here.',
+                        'You agree the price with your collector when they arrive.',
                   style: HouseholdType.caption,
                 ),
               ])),

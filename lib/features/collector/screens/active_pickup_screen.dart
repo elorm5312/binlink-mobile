@@ -11,7 +11,6 @@ import '../../../core/services/phone_launcher.dart';
 import '../../../shared/components/binlink_map.dart';
 import '../../../shared/screens/chat_screen.dart';
 import '../providers/collector_provider.dart';
-import 'navigation_screen.dart';
 import 'package:binlink_mobile/core/utils/json_num.dart';
 import 'awaiting_payment_screen.dart';
 
@@ -140,6 +139,27 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
     );
   }
 
+  /// Collector enters the price agreed with the customer on arrival and sends
+  /// it over for the household to confirm (or counter) in their app before the
+  /// pickup proceeds. Used both by the on-arrival auto-prompt and the manual
+  /// "propose price" button.
+  Future<void> _proposeNegotiation({double? initial}) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final provider = context.read<CollectorProvider>();
+    final amount = await _askAgreedPrice(initial: initial);
+    if (amount == null || !mounted) return;
+    final ok = await provider.proposeNegotiation(widget.booking['id'] as String, amount);
+    if (!mounted) return;
+    if (ok) {
+      setState(() {
+        widget.booking['negotiatedStatus'] = 'PROPOSED';
+        widget.booking['negotiatedProposal'] = amount;
+      });
+    }
+    messenger.showSnackBar(SnackBar(content: Text(
+      ok ? 'Price sent to customer for confirmation' : (provider.error ?? 'Could not send price'))));
+  }
+
   void _openChat() {
     final bookingId = widget.booking['id'] as String?;
     if (bookingId == null) return;
@@ -234,15 +254,7 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
               Text(widget.booking['pickupAddress'] as String? ?? 'Active pickup route', maxLines: 1, overflow: TextOverflow.ellipsis, style: CollectorType.caption),
             ])),
             IconButton(
-              onPressed: () {
-                final plat = jsonDouble(widget.booking['pickupLat']);
-                final plng = jsonDouble(widget.booking['pickupLng']);
-                if (plat == null || plng == null) return;
-                Navigator.push(context, MaterialPageRoute(builder: (_) => NavigationScreen(
-                  destination: ll.LatLng(plat, plng),
-                  label: widget.booking['pickupAddress'] as String? ?? 'Pickup location',
-                )));
-              },
+              onPressed: _launchNavigation,
               icon: Icon(PhosphorIcons.navigationArrow(), color: CollectorColors.white),
             ),
             IconButton(
@@ -358,21 +370,7 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
                       label: st == 'PROPOSED' ? 'RE-PROPOSE PRICE' : 'PROPOSE PRICE TO CUSTOMER',
                       icon: 'navigation',
                       secondary: true,
-                      onPressed: () async {
-                        final messenger = ScaffoldMessenger.of(context);
-                        final amount = await _askAgreedPrice();
-                        if (amount == null || !mounted) return;
-                        final ok = await provider.proposeNegotiation(widget.booking['id'] as String, amount);
-                        if (!mounted) return;
-                        if (ok) {
-                          setState(() {
-                            widget.booking['negotiatedStatus'] = 'PROPOSED';
-                            widget.booking['negotiatedProposal'] = amount;
-                          });
-                        }
-                        messenger.showSnackBar(SnackBar(content: Text(
-                          ok ? 'Price sent to customer for confirmation' : (provider.error ?? 'Could not send price'))));
-                      },
+                      onPressed: () => _proposeNegotiation(initial: proposal),
                     ),
                   ]);
                 }),
@@ -385,14 +383,20 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
                 final bookingId = widget.booking['id'] as String?;
                 if (bookingId == null) return;
                 double? agreedAmount;
-                // Negotiated pickup: always confirm the price at completion,
-                // pre-filled with what the household entered at booking.
+                // Negotiated pickup: the price is agreed on arrival. If it was
+                // already confirmed by the customer, reuse it at completion;
+                // only prompt here as a fallback when it somehow wasn't set.
                 if (action == 'complete' && _isNegotiated) {
-                  agreedAmount = await _askAgreedPrice(
-                    initial: jsonDouble(widget.booking['negotiatedAmount']) ??
-                        jsonDouble(widget.booking['negotiatedProposal']),
-                  );
-                  if (agreedAmount == null || !mounted) return;
+                  final confirmed = jsonDouble(widget.booking['negotiatedAmount']);
+                  final negStatus = widget.booking['negotiatedStatus'] as String?;
+                  if (negStatus == 'CONFIRMED' && confirmed != null && confirmed > 0) {
+                    agreedAmount = confirmed;
+                  } else {
+                    agreedAmount = await _askAgreedPrice(
+                      initial: confirmed ?? jsonDouble(widget.booking['negotiatedProposal']),
+                    );
+                    if (agreedAmount == null || !mounted) return;
+                  }
                 }
                 // Weight is intentionally not captured (no weighing scale in the field).
                 final ok = await provider.updateStatus(bookingId, action, agreedAmount: agreedAmount);
@@ -413,6 +417,16 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
                 // Starting the trip → open Google Maps turn-by-turn.
                 if (action == 'on-the-way' || action == 'en-route') {
                   await _launchNavigation();
+                }
+                // On arrival for a negotiated pickup, immediately prompt the
+                // collector to enter the price agreed face-to-face, unless the
+                // customer has already confirmed one.
+                if (nextStatus == 'ARRIVED' && _isNegotiated) {
+                  final negStatus = widget.booking['negotiatedStatus'] as String?;
+                  final confirmed = jsonDouble(widget.booking['negotiatedAmount']);
+                  if (!(negStatus == 'CONFIRMED' && confirmed != null && confirmed > 0)) {
+                    await _proposeNegotiation(initial: jsonDouble(widget.booking['negotiatedProposal']));
+                  }
                 }
                 if (nextStatus == 'COMPLETED') {
                   // Wait on site until the household's payment is confirmed.

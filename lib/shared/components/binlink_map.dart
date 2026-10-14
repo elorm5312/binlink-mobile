@@ -97,6 +97,35 @@ class BinLinkMapState extends State<BinLinkMap> {
   bool _pickupReady = false;
   bool _didInitialFit = false;
 
+  // Drives the expanding "radar" halo under the collector/rider marker. Ticks
+  // on a throttled timer (not per-frame) so the platform channel stays quiet.
+  Timer? _pulseTimer;
+
+  // Drives the flowing-dash animation along the route line (active-navigation
+  // look). Cycles a dash-array sequence so the dashes appear to march toward
+  // the destination.
+  Timer? _routeTimer;
+  int _dashStep = 0;
+
+  // Canonical animated-line dash sequence (MapLibre/Mapbox pattern): stepping
+  // through these shifts the gaps forward, giving the illusion of motion.
+  static const List<List<double>> _dashSeq = [
+    [0, 4, 3],
+    [0.5, 4, 2.5],
+    [1, 4, 2],
+    [1.5, 4, 1.5],
+    [2, 4, 1],
+    [2.5, 4, 0.5],
+    [3, 4, 0],
+    [0, 0.5, 3, 3.5],
+    [0, 1, 3, 3],
+    [0, 1.5, 3, 2.5],
+    [0, 2, 3, 2],
+    [0, 2.5, 3, 1.5],
+    [0, 3, 3, 1],
+    [0, 3.5, 3, 0.5],
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -106,11 +135,74 @@ class BinLinkMapState extends State<BinLinkMap> {
   }
 
   @override
+  void dispose() {
+    _pulseTimer?.cancel();
+    _routeTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Marches the route-line dashes toward the destination by cycling the dash
+  /// array ~every 90ms. The solid casing underneath keeps the path continuous.
+  void _startRouteFlow(String accentHex) {
+    if (_routeTimer != null) return;
+    _routeTimer = Timer.periodic(const Duration(milliseconds: 90), (_) {
+      if (_controller == null || !_routeReady) return;
+      _dashStep = (_dashStep + 1) % _dashSeq.length;
+      _controller
+          ?.setLayerProperties(
+            'route-line',
+            LineLayerProperties(
+              lineColor: accentHex,
+              lineWidth: 5.5,
+              lineJoin: 'round',
+              lineCap: 'round',
+              lineDasharray: _dashSeq[_dashStep],
+            ),
+          )
+          .catchError((_) {});
+    });
+  }
+
+  @override
   void didUpdateWidget(covariant BinLinkMap oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (_styleLoaded) {
       _updateMapLayers(oldWidget);
     }
+  }
+
+  /// Animated halo under the rider marker: a soft ring that expands and fades
+  /// on a ~1.5s loop (Uber/Bolt style). Updates are throttled to ~16/sec so the
+  /// pulse reads smoothly without flooding the native map channel.
+  void _startPulse(String accentHex) {
+    if (_pulseTimer != null) return;
+    final sw = Stopwatch()..start();
+    _pulseTimer = Timer.periodic(const Duration(milliseconds: 60), (_) {
+      if (_controller == null || !_collectorReady) return;
+      const periodMs = 1500;
+      final t = (sw.elapsedMilliseconds % periodMs) / periodMs; // 0..1
+      final eased = Curves.easeOut.transform(t);
+      final radius = 9.0 + 30.0 * eased;
+      final opacity = 0.45 * (1 - t);
+      _controller
+          ?.setLayerProperties(
+            'collector-pulse',
+            CircleLayerProperties(
+              circleRadius: radius,
+              circleColor: accentHex,
+              circleOpacity: opacity * 0.6,
+              circleStrokeColor: accentHex,
+              circleStrokeWidth: 1.6,
+              circleStrokeOpacity: opacity,
+            ),
+          )
+          .catchError((_) {});
+    });
+  }
+
+  void _stopPulse() {
+    _pulseTimer?.cancel();
+    _pulseTimer = null;
   }
 
   void flyTo(ll.LatLng position, {double zoom = 15}) {
@@ -241,6 +333,7 @@ class BinLinkMapState extends State<BinLinkMap> {
       await _controller?.addLineLayer(sourceId, 'route-line', LineLayerProperties(
         lineColor: accent, lineWidth: 5.5, lineJoin: 'round', lineCap: 'round'));
       _routeReady = true;
+      _startRouteFlow(accent);
     } catch (e) {
       debugPrint('[Map] Error drawing route: $e');
     }
@@ -270,15 +363,36 @@ class BinLinkMapState extends State<BinLinkMap> {
     }
     final data = <String, dynamic>{'type': 'FeatureCollection', 'features': features};
 
+    final accent = (FlavorConfig.isCollector ? CollectorColors.green : HouseholdColors.primary).toHexShortString();
+
     try {
       // Update the source in place so the truck glides instead of blinking.
       if (_collectorReady) {
         await _controller?.setGeoJsonSource(sourceId, data);
+        // Pause the halo when no collector is on the map; resume when one is.
+        if (features.isEmpty) {
+          _stopPulse();
+        } else {
+          _startPulse(accent);
+        }
         return;
       }
       if (features.isEmpty) return;
 
       await _controller?.addSource(sourceId, GeojsonSourceProperties(data: data));
+      // Pulsing halo first so the truck symbol (added next) sits on top of it.
+      await _controller?.addCircleLayer(
+        sourceId,
+        'collector-pulse',
+        CircleLayerProperties(
+          circleRadius: 9,
+          circleColor: accent,
+          circleOpacity: 0.25,
+          circleStrokeColor: accent,
+          circleStrokeWidth: 1.6,
+          circleStrokeOpacity: 0.4,
+        ),
+      );
       await _controller?.addSymbolLayer(
         sourceId,
         layerId,
@@ -293,6 +407,7 @@ class BinLinkMapState extends State<BinLinkMap> {
         ),
       );
       _collectorReady = true;
+      _startPulse(accent);
     } catch (e) {
       debugPrint('[Map] Error updating collectors: $e');
     }

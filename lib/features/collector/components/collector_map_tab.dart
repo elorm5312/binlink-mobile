@@ -13,8 +13,8 @@ import '../../../shared/screens/messages_screen.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/collector_provider.dart';
 import '../screens/active_pickup_screen.dart';
-import '../screens/navigation_screen.dart';
 import '../screens/verification_screen.dart';
+import '../../../core/services/maps_launcher.dart';
 import 'package:binlink_mobile/core/utils/json_num.dart';
 import 'package:binlink_mobile/shared/components/profile_completion_sheet.dart';
 import 'package:binlink_mobile/core/network/socket_service.dart';
@@ -86,15 +86,12 @@ class CollectorMapTab extends StatelessWidget {
             child: _DumpsiteBanner(
               loadPercent: provider.loadPercent,
               dumpsite: provider.nearestDumpsite,
-              onNavigate: () {
+              onNavigate: () async {
                 final d = provider.nearestDumpsite;
                 final dlat = jsonDouble(d?['lat']);
                 final dlng = jsonDouble(d?['lng']);
                 if (dlat == null || dlng == null) return;
-                Navigator.push(context, MaterialPageRoute(builder: (_) => NavigationScreen(
-                  destination: ll.LatLng(dlat, dlng),
-                  label: d?['name'] as String? ?? 'Nearest dumpsite',
-                )));
+                await MapsLauncher.navigateTo(dlat, dlng, label: d?['name'] as String? ?? 'Nearest dumpsite');
               },
               onOffloaded: () => _confirmOffload(context, provider),
             ),

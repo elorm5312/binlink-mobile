@@ -56,3 +56,4 @@ release.jks
 android/app/release.jks
 android/app/keystore.jks
 android/build/
+design_backup/
