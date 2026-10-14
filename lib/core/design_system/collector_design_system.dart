@@ -155,7 +155,7 @@ IconData _collectorIcon(String name) {
   }
 }
 
-class CButton extends StatelessWidget {
+class CButton extends StatefulWidget {
   const CButton({super.key, required this.label, required this.onPressed, this.icon, this.danger = false, this.secondary = false, this.loading = false});
   final String label;
   final VoidCallback? onPressed;
@@ -165,42 +165,58 @@ class CButton extends StatelessWidget {
   final bool loading;
 
   @override
+  State<CButton> createState() => _CButtonState();
+}
+
+class _CButtonState extends State<CButton> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    final bg = danger ? CollectorColors.red : secondary ? CollectorColors.charcoal : CollectorColors.green;
-    final fg = secondary ? CollectorColors.white : CollectorColors.dark;
-    final enabled = !loading && onPressed != null;
+    final bg = widget.danger ? CollectorColors.red : widget.secondary ? CollectorColors.charcoal : CollectorColors.green;
+    final fg = widget.secondary ? CollectorColors.white : CollectorColors.dark;
+    final enabled = !widget.loading && widget.onPressed != null;
+    void press(bool v) { if (enabled && _pressed != v) setState(() => _pressed = v); }
     return Semantics(
       button: true,
       enabled: enabled,
-      label: label,
+      label: widget.label,
+      child: AnimatedScale(
+      scale: _pressed ? 0.96 : 1.0,
+      duration: const Duration(milliseconds: 110),
+      curve: Curves.easeOut,
       child: SizedBox(
       height: 60,
       width: double.infinity,
       child: DecoratedBox(
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(24), border: Border.all(color: secondary ? CollectorColors.line : bg)),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(24), border: Border.all(color: widget.secondary ? CollectorColors.line : bg)),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(24),
+              onTapDown: enabled ? (_) => press(true) : null,
+              onTapUp: enabled ? (_) => press(false) : null,
+              onTapCancel: enabled ? () => press(false) : null,
               onTap: enabled
                   ? () {
                       AppHaptics.light();
-                      onPressed!();
+                      widget.onPressed!();
                     }
                   : null,
               child: Center(
-                child: loading
+                child: widget.loading
                   ? _LoadingDots(color: fg)
                   : Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (icon != null) ...[CIcon(icon!, size: 20, color: fg), const SizedBox(width: 10)],
-                        Text(label, style: CollectorType.body.copyWith(color: fg, fontWeight: FontWeight.w900, letterSpacing: .2)),
+                        if (widget.icon != null) ...[CIcon(widget.icon!, size: 20, color: fg), const SizedBox(width: 10)],
+                        Text(widget.label, style: CollectorType.body.copyWith(color: fg, fontWeight: FontWeight.w900, letterSpacing: .2)),
                       ],
                     ),
             ),
           ),
         ),
+      ),
       ),
       ),
     );

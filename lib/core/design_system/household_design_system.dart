@@ -172,7 +172,7 @@ IconData _householdIcon(String name) {
   }
 }
 
-class HButton extends StatelessWidget {
+class HButton extends StatefulWidget {
   const HButton({super.key, required this.label, required this.onPressed, this.icon, this.secondary = false, this.loading = false});
   final String label;
   final VoidCallback? onPressed;
@@ -181,50 +181,66 @@ class HButton extends StatelessWidget {
   final bool loading;
 
   @override
+  State<HButton> createState() => _HButtonState();
+}
+
+class _HButtonState extends State<HButton> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    final fg = secondary ? HouseholdColors.forest : Colors.white;
-    final enabled = !loading && onPressed != null;
+    final fg = widget.secondary ? HouseholdColors.forest : Colors.white;
+    final enabled = !widget.loading && widget.onPressed != null;
+    void press(bool v) { if (enabled && _pressed != v) setState(() => _pressed = v); }
     return Semantics(
       button: true,
       enabled: enabled,
-      label: label,
+      label: widget.label,
       child: AnimatedOpacity(
       duration: const Duration(milliseconds: 220),
-      opacity: onPressed == null ? .45 : 1,
+      opacity: widget.onPressed == null ? .45 : 1,
+      child: AnimatedScale(
+      scale: _pressed ? 0.96 : 1.0,
+      duration: const Duration(milliseconds: 110),
+      curve: Curves.easeOut,
       child: SizedBox(
         height: 56,
         width: double.infinity,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: secondary ? HouseholdColors.card : HouseholdColors.primary,
+            color: widget.secondary ? HouseholdColors.card : HouseholdColors.primary,
             borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: secondary ? HouseholdColors.border : HouseholdColors.primary),
-            boxShadow: secondary ? null : [BoxShadow(color: HouseholdColors.primary.withAlpha(54), blurRadius: 22, offset: const Offset(0, 10))],
+            border: Border.all(color: widget.secondary ? HouseholdColors.border : HouseholdColors.primary),
+            boxShadow: widget.secondary ? null : [BoxShadow(color: HouseholdColors.primary.withAlpha(54), blurRadius: 22, offset: const Offset(0, 10))],
           ),
           child: Material(
             color: Colors.transparent,
             child: InkWell(
               borderRadius: BorderRadius.circular(28),
+              onTapDown: enabled ? (_) => press(true) : null,
+              onTapUp: enabled ? (_) => press(false) : null,
+              onTapCancel: enabled ? () => press(false) : null,
               onTap: enabled
                   ? () {
                       AppHaptics.light();
-                      onPressed!();
+                      widget.onPressed!();
                     }
                   : null,
               child: Center(
-                child: loading
+                child: widget.loading
                     ? _LoadingDots(color: fg)
                     : Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (icon != null) ...[HIcon(icon!, size: 20, color: fg), const SizedBox(width: 10)],
-                          Text(label, style: HouseholdType.body.copyWith(color: fg, fontWeight: FontWeight.w700)),
+                          if (widget.icon != null) ...[HIcon(widget.icon!, size: 20, color: fg), const SizedBox(width: 10)],
+                          Text(widget.label, style: HouseholdType.body.copyWith(color: fg, fontWeight: FontWeight.w700)),
                         ],
                       ),
               ),
             ),
           ),
         ),
+      ),
       ),
       ),
     );
