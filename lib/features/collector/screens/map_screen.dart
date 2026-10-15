@@ -18,6 +18,7 @@ import 'package:binlink_mobile/shared/components/profile_completion_sheet.dart';
 import 'package:binlink_mobile/shared/components/pending_payment_banner.dart';
 import 'package:binlink_mobile/core/utils/json_num.dart';
 import 'awaiting_payment_screen.dart';
+import '../../../core/services/sound_fx.dart';
 
 class CollectorMapScreen extends StatefulWidget {
   const CollectorMapScreen({super.key});
@@ -83,7 +84,9 @@ class _CollectorMapScreenState extends State<CollectorMapScreen> with WidgetsBin
   }
 
   void _onPaid(dynamic _) {
-    if (mounted) context.read<CollectorProvider>().loadDashboard();
+    if (!mounted) return;
+    SoundFx.play(SoundFx.success); // the household has paid for a pickup
+    context.read<CollectorProvider>().loadDashboard();
   }
 
   @override

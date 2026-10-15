@@ -59,7 +59,7 @@ class _IncomingRequestOverlayState extends State<IncomingRequestOverlay>
     try {
       await _player.setReleaseMode(ReleaseMode.loop);
       await _player.setVolume(1.0);
-      await _player.play(AssetSource('sounds/ringtone.wav'), volume: 1.0);
+      await _player.play(AssetSource('sounds/new_job_alert.wav'), volume: 1.0);
     } catch (_) {
       // Fall back to the system alert tone if the asset player is unavailable.
       SystemSound.play(SystemSoundType.alert);

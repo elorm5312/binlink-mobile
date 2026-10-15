@@ -8,6 +8,7 @@ import '../../core/network/api_client.dart';
 import '../../core/design_system/household_design_system.dart';
 import '../../core/design_system/collector_design_system.dart';
 import '../models/chat_message.dart';
+import '../../core/services/sound_fx.dart';
 
 /// Real-time in-app chat between a household and their assigned collector for a
 /// single booking. Shared across both flavors — accent and surfaces adapt via
@@ -136,6 +137,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _ids.add(msg.id);
       _messages.add(msg);
     });
+    if (!_loading && !msg.isMine(_myRole)) SoundFx.play(SoundFx.message, volume: 0.6);
     _scrollToEnd();
   }
 

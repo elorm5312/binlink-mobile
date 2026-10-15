@@ -317,7 +317,7 @@ class CallService extends ChangeNotifier {
     try {
       if (on) {
         await _ringer.setReleaseMode(ReleaseMode.loop);
-        await _ringer.play(AssetSource('sounds/ringtone.wav'), volume: 1.0);
+        await _ringer.play(AssetSource('sounds/call_ringtone.wav'), volume: 1.0);
       } else {
         await _ringer.stop();
       }

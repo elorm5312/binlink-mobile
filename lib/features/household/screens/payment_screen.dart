@@ -12,6 +12,7 @@ import '../../../core/storage/secure_storage.dart';
 import '../../../core/utils/json_num.dart';
 import '../providers/household_provider.dart';
 import 'tracking_screen.dart';
+import '../../../core/services/sound_fx.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key, this.booking = const {}});
@@ -527,6 +528,7 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
       _successRef = 'Payment verified';
     });
     HapticFeedback.lightImpact();
+    SoundFx.play(SoundFx.success);
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => PaymentSuccessScreen(
