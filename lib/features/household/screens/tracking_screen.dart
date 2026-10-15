@@ -8,10 +8,10 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/design_system/household_design_system.dart';
-import '../../../core/services/phone_launcher.dart';
 import '../../../core/utils/json_num.dart';
 import '../../../core/routing/routing_service.dart';
 import '../../../shared/components/binlink_map.dart';
+import '../../../shared/screens/call_screen.dart';
 import '../../../shared/screens/chat_screen.dart';
 import '../providers/household_provider.dart';
 import 'payment_screen.dart';
@@ -237,7 +237,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
               collector: collector,
               etaMinutes: etaMinutes,
               distanceKm: distanceKm,
-              onCall: () => _launchCall(collector?['phone'] as String?),
+              onCall: () => _launchCall(collector),
               onMessage: () => _openChat(collector),
               onFavorite: collector != null ? () => _toggleFavorite(prov, collector) : null,
               isFavorite: collector != null && prov.isFavorite(collector['id'] as String? ?? ''),
@@ -303,14 +303,12 @@ class _TrackingScreenState extends State<TrackingScreen> {
         ok ? 'Price confirmed — GHS ${result.toStringAsFixed(2)}' : (prov.error ?? 'Could not confirm price'))));
   }
 
-  Future<void> _launchCall(String? phone) async {
-    final ok = await PhoneLauncher.call(phone);
-    if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No phone number available for your collector yet.')),
+  Future<void> _launchCall(Map<String, dynamic>? collector) => showCallOptions(
+        context,
+        bookingId: _booking['id'] as String?,
+        peerName: collector?['fullName'] as String? ?? 'Your collector',
+        peerPhone: collector?['phone'] as String?,
       );
-    }
-  }
 
   void _openChat(Map<String, dynamic>? collector) {
     final bookingId = _booking['id'] as String?;

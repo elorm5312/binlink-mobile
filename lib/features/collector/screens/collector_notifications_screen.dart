@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -492,6 +493,9 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
   final _vehicleType = TextEditingController();
   final _vehiclePlate = TextEditingController();
   final _capacity = TextEditingController();
+  DateTime? _roadworthy;
+  DateTime? _insurance;
+  DateTime? _license;
   bool _loading = true;
   bool _saving = false;
   String? _error;
@@ -523,6 +527,9 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
       _vehicleType.text = user?.vehicleType ?? '';
       _vehiclePlate.text = user?.vehiclePlate ?? '';
       _capacity.text = (user?.maxCapacityKg ?? 500).toStringAsFixed(0);
+      _roadworthy = user?.roadworthyExpiry;
+      _insurance = user?.insuranceExpiry;
+      _license = user?.licenseExpiry;
     } catch (_) {
       _error = 'Could not load vehicle details.';
     } finally {
@@ -550,6 +557,9 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
         'vehicleType': _vehicleType.text.trim(),
         'vehiclePlate': _vehiclePlate.text.trim(),
         'maxCapacityKg': double.tryParse(_capacity.text.trim()),
+        if (_roadworthy != null) 'roadworthyExpiry': _iso(_roadworthy!),
+        if (_insurance != null) 'insuranceExpiry': _iso(_insurance!),
+        if (_license != null) 'licenseExpiry': _iso(_license!),
       });
       await auth.refreshProfile();
       if (updated != null) auth.updateUser(updated);
@@ -559,6 +569,35 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  static String _iso(DateTime d) => DateTime.utc(d.year, d.month, d.day).toIso8601String();
+
+  Future<void> _pickDate(DateTime? current, ValueChanged<DateTime> onPicked) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current ?? now.add(const Duration(days: 180)),
+      firstDate: DateTime(now.year - 2),
+      lastDate: DateTime(now.year + 10),
+      helpText: 'Select expiry date',
+    );
+    if (picked != null) setState(() => onPicked(picked));
+  }
+
+  Widget _docTile(String label, IconData icon, DateTime? value, ValueChanged<DateTime> onPicked) {
+    final expired = value != null && value.isBefore(DateTime.now());
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, color: expired ? CollectorColors.warning : CollectorColors.green),
+      title: Text(label, style: CollectorType.body.copyWith(fontWeight: FontWeight.w700)),
+      subtitle: Text(
+        value == null ? 'Tap to add expiry date' : '${expired ? 'Expired' : 'Expires'} ${DateFormat('d MMM yyyy').format(value)}',
+        style: CollectorType.caption.copyWith(color: expired ? CollectorColors.warning : null),
+      ),
+      trailing: Icon(Icons.calendar_month_outlined, color: CollectorColors.gray),
+      onTap: () => _pickDate(value, onPicked),
+    );
   }
 
   @override
@@ -582,6 +621,15 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
               CTextField(controller: _vehiclePlate, label: 'Vehicle plate', validator: (v) => (v == null || v.trim().length < 3) ? 'Enter plate number' : null),
               const SizedBox(height: 12),
               CTextField(controller: _capacity, label: 'Capacity kg', keyboardType: TextInputType.number, validator: (v) => double.tryParse(v ?? '') == null ? 'Enter a valid capacity' : null),
+            ]),
+          ),
+          const SizedBox(height: 12),
+          CPanel(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Documents', style: CollectorType.section),
+              _docTile('DVLA roadworthy', Icons.fact_check_outlined, _roadworthy, (d) => _roadworthy = d),
+              _docTile('Insurance', Icons.shield_outlined, _insurance, (d) => _insurance = d),
+              _docTile("Driver's licence", Icons.credit_card_outlined, _license, (d) => _license = d),
             ]),
           ),
           const SizedBox(height: 12),

@@ -49,6 +49,8 @@
 	<string>BinLink uses your location to match you with nearby collectors and show live pickup tracking.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>BinLink needs background location so collectors can share their live location during active pickups.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>BinLink uses the microphone for in-app voice calls between you and your collector or customer.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>BinLink uses the camera to photograph waste pickups as proof of collection.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -58,6 +60,7 @@
 		<string>location</string>
 		<string>fetch</string>
 		<string>remote-notification</string>
+		<string>audio</string>
 	</array>
 	<key>CFBundleURLTypes</key>
 	<array>

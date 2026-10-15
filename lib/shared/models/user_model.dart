@@ -15,6 +15,9 @@ class UserModel {
   final int totalPickups;
   final String? vehicleType;
   final String? vehiclePlate;
+  final DateTime? roadworthyExpiry; // DVLA roadworthy certificate
+  final DateTime? insuranceExpiry;
+  final DateTime? licenseExpiry;
   final double? lastLat;
   final double? lastLng;
   final String? memberSince;
@@ -38,6 +41,9 @@ class UserModel {
     this.totalPickups = 0,
     this.vehicleType,
     this.vehiclePlate,
+    this.roadworthyExpiry,
+    this.insuranceExpiry,
+    this.licenseExpiry,
     this.lastLat,
     this.lastLng,
     this.memberSince,
@@ -68,6 +74,9 @@ class UserModel {
       totalPickups: json['totalPickups'] as int? ?? 0,
       vehicleType:      json['vehicleType'] as String?,
       vehiclePlate:     json['vehiclePlate'] as String?,
+      roadworthyExpiry: _date(json['roadworthyExpiry']),
+      insuranceExpiry:  _date(json['insuranceExpiry']),
+      licenseExpiry:    _date(json['licenseExpiry']),
       lastLat:          jsonDouble(json['lastLat']),
       lastLng:          jsonDouble(json['lastLng']),
       memberSince:      json['createdAt'] as String?,
@@ -78,11 +87,16 @@ class UserModel {
     );
   }
 
+  static DateTime? _date(dynamic v) => v is String ? DateTime.tryParse(v) : null;
+
   Map<String, dynamic> toJson() => {
     'id': id, 'phone': phone, 'email': email, 'role': role,
     'fullName': fullName, 'address': address, 'profilePhoto': profilePhoto, 'status': status,
     'isOnline': isOnline, 'rating': rating, 'totalEarned': totalEarned, 'totalPickups': totalPickups,
     'vehicleType': vehicleType, 'vehiclePlate': vehiclePlate,
+    'roadworthyExpiry': roadworthyExpiry?.toIso8601String(),
+    'insuranceExpiry': insuranceExpiry?.toIso8601String(),
+    'licenseExpiry': licenseExpiry?.toIso8601String(),
     'lastLat': lastLat, 'lastLng': lastLng,
   };
 
@@ -90,6 +104,7 @@ class UserModel {
     String? phone, String? email, String? fullName, String? address, String? profilePhoto,
     bool? isOnline, double? rating, double? totalEarned, int? totalPickups,
     String? vehicleType, String? vehiclePlate,
+    DateTime? roadworthyExpiry, DateTime? insuranceExpiry, DateTime? licenseExpiry,
     double? lastLat, double? lastLng,
     double? currentLoadKg, double? maxCapacityKg,
     int? ecoPoints, double? totalKgRecycled,
@@ -108,6 +123,9 @@ class UserModel {
       totalPickups:   totalPickups   ?? this.totalPickups,
       vehicleType:    vehicleType    ?? this.vehicleType,
       vehiclePlate:   vehiclePlate   ?? this.vehiclePlate,
+      roadworthyExpiry: roadworthyExpiry ?? this.roadworthyExpiry,
+      insuranceExpiry:  insuranceExpiry  ?? this.insuranceExpiry,
+      licenseExpiry:    licenseExpiry    ?? this.licenseExpiry,
       lastLat:        lastLat        ?? this.lastLat,
       lastLng:        lastLng        ?? this.lastLng,
       currentLoadKg:  currentLoadKg  ?? this.currentLoadKg,

@@ -18,6 +18,7 @@ import '../services/background_location_service.dart';
 import '../services/push/push_manager.dart';
 import '../services/offline_action_queue_service.dart';
 import '../network/api_client.dart';
+import '../services/call_service.dart';
 
 class CoreInitializer {
   /// Runs the minimum needed to paint the first frame, then kicks off the
@@ -44,6 +45,10 @@ class CoreInitializer {
     } catch (e) {
       debugPrint('[Core] .env load failed: $e. Falling back to defaults.');
     }
+
+    // In-app voice calls: socket listeners only, registered before the socket
+    // connects so an incoming call rings on any screen.
+    CallService.instance.init();
 
     // 2. Supabase — init is local setup (no network round-trip), and chat/photo
     //    screens need it, so keep it on the critical path. Cheap.

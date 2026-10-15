@@ -7,8 +7,8 @@ import 'package:provider/provider.dart';
 
 import '../../../core/design_system/collector_design_system.dart';
 import '../../../core/services/maps_launcher.dart';
-import '../../../core/services/phone_launcher.dart';
 import '../../../shared/components/binlink_map.dart';
+import '../../../shared/screens/call_screen.dart';
 import '../../../shared/screens/chat_screen.dart';
 import '../providers/collector_provider.dart';
 import 'package:binlink_mobile/core/utils/json_num.dart';
@@ -181,14 +181,12 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
   String get _customerName =>
       (widget.booking['household'] as Map<String, dynamic>?)?['fullName'] as String? ?? 'Customer';
 
-  Future<void> _callCustomer() async {
-    final ok = await PhoneLauncher.call(_customerPhone);
-    if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No phone number available for this customer.')),
+  Future<void> _callCustomer() => showCallOptions(
+        context,
+        bookingId: widget.booking['id'] as String?,
+        peerName: _customerName,
+        peerPhone: _customerPhone,
       );
-    }
-  }
 
   Future<void> _confirmNoShow(CollectorProvider provider) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -297,7 +295,7 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
                     Text(_customerPhone ?? 'No phone provided', style: CollectorType.caption),
                   ])),
                   IconButton(
-                    onPressed: _customerPhone == null ? null : _callCustomer,
+                    onPressed: _callCustomer,
                     icon: Icon(PhosphorIcons.phoneCall(PhosphorIconsStyle.fill),
                         color: _customerPhone == null ? CollectorColors.gray : CollectorColors.green),
                   ),

@@ -72,6 +72,8 @@ class PushManager {
   /// while the app is foregrounded — show an in-app banner to fill that gap.
   void _showBanner(PushMessage message) {
     if (message.isEmpty) return;
+    // Incoming calls ring full-screen via the socket; no banner on top of it.
+    if (message.data['type'] == 'CALL') return;
     final context = NavService.navigatorKey.currentContext;
     if (context == null || !context.mounted) return;
 
