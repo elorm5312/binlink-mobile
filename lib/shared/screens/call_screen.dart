@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/services/call_service.dart';
 import '../../core/services/phone_launcher.dart';
+import '../../core/config/app_flavor.dart';
 
 /// Full-screen in-app voice call UI (ringing, connecting, in-call, ended).
 /// All state lives in [CallService]; this screen only renders it.
@@ -61,7 +62,7 @@ class _CallScreenState extends State<CallScreen> {
       case CallPhase.outgoing:
         return 'Ringing…';
       case CallPhase.incoming:
-        return 'Incoming BinLink call';
+        return 'Incoming ${FlavorConfig.appName} call';
       case CallPhase.connecting:
         return 'Connecting…';
       case CallPhase.active:
@@ -124,8 +125,8 @@ class _CallScreenState extends State<CallScreen> {
               const SizedBox(height: 8),
               Text(_status, style: const TextStyle(color: Color(0xFFB6C7BD), fontSize: 15)),
               const SizedBox(height: 6),
-              const Text('Free call over the internet · BinLink',
-                  style: TextStyle(color: Color(0xFF6E8579), fontSize: 12)),
+              Text('Free call over the internet · ${FlavorConfig.appName}',
+                  style: const TextStyle(color: Color(0xFF6E8579), fontSize: 12)),
               const Spacer(),
               Padding(
                 padding: const EdgeInsets.fromLTRB(32, 0, 32, 40),
@@ -292,7 +293,7 @@ Future<void> showCallOptions(
           enabled: bookingId != null,
           leading: const CircleAvatar(
               backgroundColor: Color(0x222BD97B), child: Icon(Icons.wifi_calling_3, color: Color(0xFF16A34A))),
-          title: const Text('Free BinLink call', style: TextStyle(fontWeight: FontWeight.w700)),
+          title: Text('Free ${FlavorConfig.appName} call', style: const TextStyle(fontWeight: FontWeight.w700)),
           subtitle: const Text('Uses internet data — no airtime'),
           onTap: () => Navigator.pop(sheet, 'app'),
         ),

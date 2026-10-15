@@ -7,6 +7,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../navigation/nav_service.dart';
 import '../network/socket_service.dart';
 import '../../shared/screens/call_screen.dart';
+import '../config/app_flavor.dart';
 
 enum CallPhase { idle, outgoing, incoming, connecting, active, ended }
 
@@ -67,7 +68,7 @@ class CallService extends ChangeNotifier {
     if (busy) return 'You are already on a call.';
     await SocketService.ensureConnected();
     final res = await _emitAck('call:invite', {'bookingId': bookingId});
-    if (res == null) return 'Could not reach BinLink. Check your connection.';
+    if (res == null) return 'Could not reach ${FlavorConfig.appName}. Check your connection.';
     if (res['ok'] != true) return (res['error'] as String?) ?? 'Could not start the call.';
 
     _reset();

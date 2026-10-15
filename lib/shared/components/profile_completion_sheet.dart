@@ -8,7 +8,7 @@ import '../../features/auth/providers/auth_provider.dart';
 import '../models/user_model.dart';
 
 /// Every user needs a phone number: it is how households and collectors reach
-/// each other, and how BinLink contacts them. Collectors also give their number
+/// each other, and how BinLink Eco / BinLink Collector contact them. Collectors also give their number
 /// plate and the expiry dates of their DVLA roadworthy certificate, insurance
 /// and driver's licence. This full-screen page appears right after sign-in,
 /// before booking and before going online, and cannot be skipped. The server
@@ -223,8 +223,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
             const SizedBox(height: 8),
             Text(
               _collector
-                  ? 'Households and BinLink use your phone number to reach you, and see your number plate for their safety. You need these before you can receive pickup requests.'
-                  : 'Your collector and BinLink use this number to reach you about your pickups. You need it before you can request a pickup.',
+                  ? 'Households and ${FlavorConfig.appName} use your phone number to reach you, and see your number plate for their safety. You need these before you can receive pickup requests.'
+                  : 'Your collector and ${FlavorConfig.appName} use this number to reach you about your pickups. You need it before you can request a pickup.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13.5, color: muted, height: 1.45),
             ),
