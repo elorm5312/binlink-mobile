@@ -620,7 +620,13 @@ class _Step1 extends StatelessWidget {
                   boxShadow: [BoxShadow(color: HouseholdColors.forest.withAlpha(12), blurRadius: 14, offset: const Offset(0, 5))],
                 ),
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Expanded(child: SvgPicture.asset(c.$3, fit: BoxFit.contain)),
+                  Expanded(
+                    child: Image.asset(
+                      HouseholdAssets.bin3dCategory(c.$1),
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => SvgPicture.asset(c.$3, fit: BoxFit.contain),
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   Text(c.$2, style: HouseholdType.caption.copyWith(color: sel ? HouseholdColors.primary : HouseholdColors.charcoal, fontWeight: sel ? FontWeight.w700 : FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
                 ]),
@@ -864,7 +870,15 @@ class _Step2 extends StatelessWidget {
                         boxShadow: [BoxShadow(color: HouseholdColors.forest.withAlpha(12), blurRadius: 14, offset: const Offset(0, 5))],
                       ),
                       child: Column(children: [
-                        Icon(PhosphorIcons.trashSimple(), size: 26, color: sel ? Colors.white : HouseholdColors.primary),
+                        SizedBox(
+                          height: 64,
+                          child: Image.asset(
+                            HouseholdAssets.bin3dSize(b.$1),
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) =>
+                                Icon(PhosphorIcons.trashSimple(), size: 26, color: sel ? Colors.white : HouseholdColors.primary),
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         Text(b.$2, style: HouseholdType.section.copyWith(color: sel ? Colors.white : HouseholdColors.charcoal, fontSize: 14)),
                         const SizedBox(height: 2),

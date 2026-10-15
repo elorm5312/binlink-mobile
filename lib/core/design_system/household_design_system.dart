@@ -58,6 +58,11 @@ class HouseholdAssets {
   static const medicalBin      = '$root/waste_categories/medical_bin.svg';
   static const bulkyBin        = '$root/waste_categories/bulky_bin.svg';
 
+  // 3D bin renders (Batch 3) — shown when present, flat art/icon otherwise.
+  static const bins3d          = '$root/bins_3d';
+  static String bin3dSize(String size) => '$bins3d/bin_${size.toLowerCase()}.png';
+  static String bin3dCategory(String category) => '$bins3d/${category.toLowerCase()}_bin.png';
+
   // Map markers (PNG)
   static const truckMarker       = '$root/map_markers/truck_marker.png';
   static const pickupMarker      = '$root/map_markers/pickup_marker.png';

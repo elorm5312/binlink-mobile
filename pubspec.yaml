@@ -111,6 +111,7 @@ flutter:
     - assets/household_assets/wallet/
     - assets/household_assets/history/
     - assets/household_assets/waste_categories/
+    - assets/household_assets/bins_3d/
     - assets/household_assets/map_markers/
     - assets/household_assets/payments/
     - assets/household_assets/avatars/
