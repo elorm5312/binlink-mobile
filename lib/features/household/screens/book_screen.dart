@@ -914,6 +914,40 @@ class _Step2 extends StatelessWidget {
         // Show bin sizes only when NOT negotiating
         if (!isNegotiated) ...[
           Text('Bin size', style: HouseholdType.section),
+          const SizedBox(height: 4),
+          Text('Pick the bin that matches yours — the picture shows the real size difference.', style: HouseholdType.caption),
+          const SizedBox(height: 12),
+          HCard(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Row(children: [
+              SizedBox(
+                width: 132,
+                height: 132,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: Image.asset(
+                    HouseholdAssets.bin3dSize(binSize),
+                    key: ValueKey(binSize),
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Icon(PhosphorIcons.trashSimple(), size: 48, color: HouseholdColors.primary),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Builder(builder: (_) {
+                  final b = _bins.firstWhere((x) => x.$1 == binSize, orElse: () => _bins[1]);
+                  return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('${b.$2} bin', style: HouseholdType.title.copyWith(color: HouseholdColors.charcoal, fontSize: 20)),
+                    const SizedBox(height: 4),
+                    Text(b.$3, style: HouseholdType.caption.copyWith(fontSize: 14)),
+                    const SizedBox(height: 8),
+                    Text('GHS ${b.$4}', style: HouseholdType.number.copyWith(color: HouseholdColors.primary, fontSize: 18)),
+                  ]);
+                }),
+              ),
+            ]),
+          ),
           const SizedBox(height: 12),
           Row(
             children: _bins.map((b) {
@@ -928,29 +962,29 @@ class _Step2 extends StatelessWidget {
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
-                        color: sel ? HouseholdColors.primary : HouseholdColors.card,
+                        color: sel ? HouseholdColors.primary.withAlpha(22) : HouseholdColors.card,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: sel ? HouseholdColors.primary : HouseholdColors.border),
+                        border: Border.all(color: sel ? HouseholdColors.primary : HouseholdColors.border, width: sel ? 2 : 1),
                         boxShadow: [BoxShadow(color: HouseholdColors.forest.withAlpha(12), blurRadius: 14, offset: const Offset(0, 5))],
                       ),
                       child: Column(children: [
                         SizedBox(
-                          height: 64,
+                          height: 84,
                           child: Image.asset(
                             HouseholdAssets.bin3dSize(b.$1),
                             fit: BoxFit.contain,
                             errorBuilder: (_, __, ___) =>
-                                Icon(PhosphorIcons.trashSimple(), size: 26, color: sel ? Colors.white : HouseholdColors.primary),
+                                Icon(PhosphorIcons.trashSimple(), size: 26, color: HouseholdColors.primary),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(b.$2, style: HouseholdType.section.copyWith(color: sel ? Colors.white : HouseholdColors.charcoal, fontSize: 14)),
-                        const SizedBox(height: 2),
-                        Text(b.$3, style: HouseholdType.caption.copyWith(color: sel ? Colors.white.withAlpha(180) : HouseholdColors.gray)),
                         const SizedBox(height: 6),
-                        Text('GHS ${b.$4}', style: HouseholdType.number.copyWith(color: sel ? Colors.white : HouseholdColors.primary, fontSize: 14)),
+                        Text(b.$2, style: HouseholdType.section.copyWith(color: sel ? HouseholdColors.primary : HouseholdColors.charcoal, fontSize: 14)),
+                        const SizedBox(height: 2),
+                        Text(b.$3, style: HouseholdType.caption.copyWith(color: HouseholdColors.gray)),
+                        const SizedBox(height: 6),
+                        Text('GHS ${b.$4}', style: HouseholdType.number.copyWith(color: HouseholdColors.primary, fontSize: 14)),
                       ]),
                     ),
                   ),
@@ -1401,7 +1435,19 @@ class _Step5 extends StatelessWidget {
         HCard(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Booking summary', style: HouseholdType.section),
-            const SizedBox(height: 14),
+            const SizedBox(height: 10),
+            // The bin (size for fixed pricing, waste type otherwise) the collector should expect.
+            Center(
+              child: SizedBox(
+                height: 120,
+                child: Image.asset(
+                  _fixed ? HouseholdAssets.bin3dSize(binSize) : HouseholdAssets.bin3dCategory(category),
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
             _ReviewRow(label: 'Category', value: _catLabel(category)),
             if (_fixed) _ReviewRow(label: 'Bin size', value: '${_binLabel(binSize)} — GHS ${base.toStringAsFixed(2)}'),
             if (_fixed && extraBags > 0) _ReviewRow(label: 'Extra bags', value: '$extraBags × GHS 6.00'),
