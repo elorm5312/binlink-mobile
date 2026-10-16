@@ -65,7 +65,29 @@ class _BookScreenState extends State<BookScreen> {
   // Step 3
   late bool _isImmediate;
   DateTime? _scheduledDate;
-  String _timePref = 'MORNING';
+  TimeOfDay _scheduledTime = const TimeOfDay(hour: 9, minute: 0);
+
+  /// The scheduled pickup moment, in Ghana time (GMT, so UTC).
+  DateTime? get _scheduledAt {
+    final d = _scheduledDate;
+    if (d == null) return null;
+    return DateTime.utc(d.year, d.month, d.day, _scheduledTime.hour, _scheduledTime.minute);
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _scheduledTime,
+      helpText: 'Pickup time (5:00 am – 6:00 pm)',
+    );
+    if (picked == null || !mounted) return;
+    if (!ServiceHours.isScheduleTime(picked)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Scheduled pickups must be between 5:00 am and 6:00 pm.')));
+      return;
+    }
+    setState(() => _scheduledTime = picked);
+  }
   String _frequency = 'ONE_TIME';
 
   // Step 4
@@ -173,7 +195,10 @@ class _BookScreenState extends State<BookScreen> {
         // no longer need a price up front — it's agreed with the collector on
         // arrival. Only the bulky-photo requirement gates this step.
         return !_isBulky || _bulkyPhotos.isNotEmpty;
-      case 2: return _isImmediate || _scheduledDate != null;
+      case 2:
+        return _isImmediate
+            ? ServiceHours.isOpenNow()
+            : _scheduledDate != null && ServiceHours.isScheduleTime(_scheduledTime);
       case 3: return _addrCtrl.text.trim().isNotEmpty;
       default: return true;
     }
@@ -245,9 +270,9 @@ class _BookScreenState extends State<BookScreen> {
       pickupLng: _lng!,
       paymentMethod: _payment,
       wasteCategory: _category,
-      timePreference: _isImmediate ? null : _timePref,
+      timePreference: _isImmediate ? null : ServiceHours.slotFor(_scheduledTime),
       addressNotes: notes.isNotEmpty ? notes : null,
-      scheduledDate: _isImmediate ? null : _scheduledDate,
+      scheduledDate: _isImmediate ? null : _scheduledAt,
       frequency: _frequency != 'ONE_TIME' ? _frequency : null,
       preferredCollectorId: widget.preferredCollectorId,
       promoCode: (_isFixed && !_negotiate) ? _promoCode : null,
@@ -267,6 +292,12 @@ class _BookScreenState extends State<BookScreen> {
         await _handleActivePickupConflict(prov, conflictId);
         return;
       }
+      final code = prov.lastErrorCode;
+      if (code == 'NO_COLLECTOR_NEARBY' || code == 'OUTSIDE_HOURS') {
+        setState(() => _error = null);
+        await _offerSchedule(prov.error);
+        return;
+      }
       setState(() => _error = prov.error ?? 'Failed to create booking. Please try again.');
       return;
     }
@@ -275,6 +306,41 @@ class _BookScreenState extends State<BookScreen> {
     Navigator.of(context).pushReplacement(MaterialPageRoute(
       builder: (_) => TrackingScreen(booking: booking),
     ));
+  }
+
+  /// No collector within 7 km (or outside "pickup now" hours): try later, or
+  /// jump back to the schedule step.
+  Future<void> _offerSchedule(String? message) async {
+    final schedule = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: HouseholdColors.card,
+        title: Text('No collector nearby right now',
+            style: HouseholdType.title.copyWith(color: HouseholdColors.charcoal)),
+        content: Text(
+          message ?? 'No collector is available near you right now. Try again later or schedule a pickup.',
+          style: HouseholdType.body.copyWith(color: HouseholdColors.charcoal),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Try later')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: HouseholdColors.primary),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Schedule pickup'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (schedule == true) {
+      setState(() {
+        _isImmediate = false;
+        _step = 2;
+      });
+      _pageCtrl.jumpToPage(2);
+    } else {
+      Navigator.maybePop(context);
+    }
   }
 
   /// Shown when booking fails because an earlier pickup is still active.
@@ -386,11 +452,11 @@ class _BookScreenState extends State<BookScreen> {
                 _Step3(
                   isImmediate: _isImmediate,
                   scheduledDate: _scheduledDate,
-                  timePref: _timePref,
+                  scheduledTime: _scheduledTime,
                   frequency: _frequency,
                   onMode: (v) => setState(() => _isImmediate = v),
                   onDate: (v) => setState(() => _scheduledDate = v),
-                  onTime: (v) => setState(() => _timePref = v),
+                  onPickTime: _pickTime,
                   onFreq: (v) => setState(() => _frequency = v),
                 ),
                 _Step4(
@@ -409,7 +475,7 @@ class _BookScreenState extends State<BookScreen> {
                   extraBags: _extraBags,
                   isImmediate: _isImmediate,
                   scheduledDate: _scheduledDate,
-                  timePref: _timePref,
+                  timePref: _scheduledTime.format(context),
                   address: _addrCtrl.text,
                   base: _base,
                   bagsTotal: _bagsTotal,
@@ -972,20 +1038,20 @@ class _Step3 extends StatelessWidget {
   const _Step3({
     required this.isImmediate,
     required this.scheduledDate,
-    required this.timePref,
+    required this.scheduledTime,
     required this.frequency,
     required this.onMode,
     required this.onDate,
-    required this.onTime,
+    required this.onPickTime,
     required this.onFreq,
   });
   final bool isImmediate;
   final DateTime? scheduledDate;
-  final String timePref;
+  final TimeOfDay scheduledTime;
   final String frequency;
   final ValueChanged<bool> onMode;
   final ValueChanged<DateTime> onDate;
-  final ValueChanged<String> onTime;
+  final VoidCallback onPickTime;
   final ValueChanged<String> onFreq;
 
   @override
@@ -998,7 +1064,7 @@ class _Step3 extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('When should we collect?', style: HouseholdType.title),
         const SizedBox(height: 6),
-        Text('Request now or schedule up to 14 days ahead.', style: HouseholdType.caption),
+        Text('Pickups now: 6:00 am – 7:00 pm. Or schedule up to 14 days ahead.', style: HouseholdType.caption),
         const SizedBox(height: 20),
         HCard(
           padding: const EdgeInsets.all(6),
@@ -1007,7 +1073,26 @@ class _Step3 extends StatelessWidget {
             Expanded(child: _ModeTab(label: 'Schedule', active: !isImmediate, onTap: () => onMode(false))),
           ]),
         ),
-        if (isImmediate) ...[
+        if (isImmediate && !ServiceHours.isOpenNow()) ...[
+          const SizedBox(height: 20),
+          HCard(
+            color: const Color(0xFFF59E0B).withAlpha(28),
+            child: Row(children: [
+              Icon(PhosphorIcons.moon(), color: const Color(0xFFB45309), size: 22),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Closed for pickups now', style: HouseholdType.section.copyWith(color: const Color(0xFFB45309))),
+                const SizedBox(height: 2),
+                Text('Pickups now run 6:00 am – 7:00 pm. Schedule one for another time instead.', style: HouseholdType.caption),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () => onMode(false),
+                  child: Text('Schedule a pickup →', style: HouseholdType.caption.copyWith(color: HouseholdColors.primary, fontWeight: FontWeight.w700)),
+                ),
+              ])),
+            ]),
+          ),
+        ] else if (isImmediate) ...[
           const SizedBox(height: 20),
           HCard(
             color: HouseholdColors.primary.withAlpha(16),
@@ -1060,17 +1145,23 @@ class _Step3 extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          Text('Preferred time', style: HouseholdType.section),
+          Text('Pickup time', style: HouseholdType.section),
+          const SizedBox(height: 4),
+          Text('Any time between 5:00 am and 6:00 pm.', style: HouseholdType.caption),
           const SizedBox(height: 10),
-          Row(children: [
-            for (final t in [('MORNING', 'Morning', '7–11am'), ('AFTERNOON', 'Afternoon', '12–4pm'), ('EVENING', 'Evening', '4–7pm')])
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(right: t.$1 == 'EVENING' ? 0 : 8),
-                  child: _TimeChip(id: t.$1, label: t.$2, sub: t.$3, selected: timePref == t.$1, onTap: () => onTime(t.$1)),
-                ),
-              ),
-          ]),
+          GestureDetector(
+            onTap: onPickTime,
+            child: HCard(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              child: Row(children: [
+                Icon(PhosphorIcons.clock(), color: HouseholdColors.primary, size: 22),
+                const SizedBox(width: 12),
+                Expanded(child: Text(scheduledTime.format(context),
+                    style: HouseholdType.section.copyWith(color: HouseholdColors.charcoal, fontSize: 18))),
+                Text('Change', style: HouseholdType.caption.copyWith(color: HouseholdColors.primary, fontWeight: FontWeight.w700)),
+              ]),
+            ),
+          ),
           const SizedBox(height: 20),
           Text('Frequency', style: HouseholdType.section),
           const SizedBox(height: 10),
@@ -1090,7 +1181,7 @@ class _Step3 extends StatelessWidget {
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Icon(PhosphorIcons.info(), size: 18, color: HouseholdColors.primary),
             const SizedBox(width: 10),
-            Expanded(child: Text('Pickups are matched to the nearest available collector. You\'ll receive a notification when a collector is assigned.', style: HouseholdType.caption.copyWith(color: HouseholdColors.charcoal))),
+            Expanded(child: Text('We match you with a collector within 6–7 km of you. You\'ll get a notification when a collector is assigned.', style: HouseholdType.caption.copyWith(color: HouseholdColors.charcoal))),
           ]),
         ),
       ]),
@@ -1116,39 +1207,6 @@ class _ModeTab extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
         ),
         child: Center(child: Text(label, style: HouseholdType.section.copyWith(color: active ? Colors.white : HouseholdColors.gray, fontSize: 15))),
-      ),
-    );
-  }
-}
-
-class _TimeChip extends StatelessWidget {
-  const _TimeChip({required this.id, required this.label, required this.sub, required this.selected, required this.onTap});
-  final String id;
-  final String label;
-  final String sub;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        onTap();
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: selected ? HouseholdColors.primary : HouseholdColors.card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: selected ? HouseholdColors.primary : HouseholdColors.border),
-        ),
-        child: Column(children: [
-          Text(label, style: HouseholdType.caption.copyWith(color: selected ? Colors.white : HouseholdColors.charcoal, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 2),
-          Text(sub, style: HouseholdType.caption.copyWith(color: selected ? Colors.white.withAlpha(180) : HouseholdColors.gray, fontSize: 10)),
-        ]),
       ),
     );
   }
@@ -1551,4 +1609,26 @@ class _CBtn extends StatelessWidget {
       ),
     );
   }
+}
+
+/// BinLink Eco service hours. Ghana is on GMT all year, so UTC = Accra time.
+class ServiceHours {
+  ServiceHours._();
+
+  static int _min(int h, int m) => h * 60 + m;
+
+  /// "Pickup now" is available 6:00 am – 7:00 pm.
+  static bool isOpenNow() {
+    final n = DateTime.now().toUtc();
+    final m = _min(n.hour, n.minute);
+    return m >= _min(6, 0) && m < _min(19, 0);
+  }
+
+  /// Scheduled pickups: 5:00 am – 6:00 pm.
+  static bool isScheduleTime(TimeOfDay t) {
+    final m = _min(t.hour, t.minute);
+    return m >= _min(5, 0) && m <= _min(18, 0);
+  }
+
+  static String slotFor(TimeOfDay t) => t.hour < 12 ? 'MORNING' : (t.hour < 16 ? 'AFTERNOON' : 'EVENING');
 }

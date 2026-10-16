@@ -253,6 +253,7 @@ class HouseholdProvider extends ChangeNotifier {
   }) async {
     _setLoading(true);
     conflictBookingId = null;
+    lastErrorCode = null;
     try {
       final res = await ApiClient.post('/api/bookings', {
         'binSize': binSize,
@@ -285,6 +286,8 @@ class HouseholdProvider extends ChangeNotifier {
       if (e.response?.statusCode == 409) {
         conflictBookingId = e.response?.data?['bookingId'] as String?;
       }
+      final data = e.response?.data;
+      lastErrorCode = data is Map ? data['code'] as String? : null;
       _error = e.response?.data?['error'] ?? 'Failed to create booking';
       notifyListeners();
       return null;
@@ -296,6 +299,10 @@ class HouseholdProvider extends ChangeNotifier {
       _setLoading(false);
     }
   }
+
+  /// Server error code from the last failed createBooking, e.g.
+  /// NO_COLLECTOR_NEARBY, OUTSIDE_HOURS, OUTSIDE_SCHEDULE_HOURS.
+  String? lastErrorCode;
 
   /// Set when createBooking fails with 409 (an active pickup already exists).
   String? conflictBookingId;
