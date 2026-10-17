@@ -29,7 +29,7 @@ class CollectorProfileTab extends StatelessWidget {
               ),
               const SizedBox(width: 16),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(user?.fullName ?? 'BinLink collector', style: CollectorType.title),
+                Text(user?.fullName ?? 'BinLink Eco collector', style: CollectorType.title),
                 const SizedBox(height: 4),
                 Text('${user?.vehiclePlate ?? 'Vehicle pending'} • ${user?.rating.toStringAsFixed(1) ?? '5.0'} rating', style: CollectorType.caption),
               ])),

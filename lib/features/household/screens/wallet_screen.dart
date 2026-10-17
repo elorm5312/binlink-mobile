@@ -123,7 +123,7 @@ class _WalletScreenState extends State<WalletScreen> {
               HCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('Profile rewards', style: HouseholdType.section),
                 const SizedBox(height: 12),
-                Text(user?.fullName ?? 'BinLink household', style: HouseholdType.body),
+                Text(user?.fullName ?? 'BinLink Eco household', style: HouseholdType.body),
                 const SizedBox(height: 6),
                 Text('${provider.rewardLedger.length} reward ledger entries', style: HouseholdType.caption),
               ])),

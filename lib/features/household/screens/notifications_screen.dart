@@ -97,7 +97,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
                 const SizedBox(width: 16),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(user?.fullName ?? 'BinLink household', style: HouseholdType.title),
+                  Text(user?.fullName ?? 'BinLink Eco household', style: HouseholdType.title),
                   const SizedBox(height: 4),
                   Text(user?.email ?? 'Profile synced with your account', style: HouseholdType.caption),
                 ])),
@@ -299,7 +299,7 @@ class _DirectContactCard extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('Reach us directly', style: HouseholdType.section),
         const SizedBox(height: 4),
-        Text('Call or email the BinLink team.', style: HouseholdType.caption),
+        Text('Call or email the BinLink Eco team.', style: HouseholdType.caption),
         const SizedBox(height: 14),
         _ContactTile(
           icon: HIcon('phone', color: HouseholdColors.primary, size: 20),
@@ -1303,11 +1303,11 @@ class TermsScreen extends StatelessWidget {
 const _kTermsSections = [
   (
     '1. Acceptance of Terms',
-    'By downloading, installing, or using the BinLink application, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the app.',
+    'By downloading, installing, or using the BinLink Eco application, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the app.',
   ),
   (
     '2. Description of Service',
-    'BinLink is a waste collection platform that connects households and businesses with independent waste collectors in Ghana. BinLink acts as a marketplace facilitator and is not directly responsible for the quality or completion of collection services.',
+    'BinLink Eco is a waste collection platform that connects households and businesses with independent waste collectors in Ghana. BinLink Eco acts as a marketplace facilitator and is not directly responsible for the quality or completion of collection services.',
   ),
   (
     '3. Eligibility',
@@ -1315,27 +1315,27 @@ const _kTermsSections = [
   ),
   (
     '4. Bookings & Payments',
-    'Payment is due once your collector marks the pickup as completed, via Mobile Money (MTN MoMo, Telecel Cash, or AirtelTigo) or your BinLink wallet. Cash on pickup is not accepted. Prices are denominated in Ghana Cedis (GHS). BinLink reserves the right to update pricing at any time with reasonable notice.',
+    'Payment is due once your collector marks the pickup as completed, via Mobile Money (MTN MoMo, Telecel Cash, or AirtelTigo) or your BinLink Eco wallet. Cash on pickup is not accepted. Prices are denominated in Ghana Cedis (GHS). BinLink Eco reserves the right to update pricing at any time with reasonable notice.',
   ),
   (
     '5. Cancellations',
-    'Households may cancel a booking up to 3 times per 24-hour period. Excessive cancellations may result in account restrictions. Collectors who cancel or fail to arrive may be subject to penalties at BinLink\'s discretion.',
+    'Households may cancel a booking up to 3 times per 24-hour period. Excessive cancellations may result in account restrictions. Collectors who cancel or fail to arrive may be subject to penalties at BinLink Eco\'s discretion.',
   ),
   (
     '6. Data & Privacy',
-    'BinLink collects location data, contact information, and transaction history to provide its service. Your data is stored securely and is never sold to third parties. Please review our Privacy Policy for full details.',
+    'BinLink Eco collects location data, contact information, and transaction history to provide its service. Your data is stored securely and is never sold to third parties. Please review our Privacy Policy for full details.',
   ),
   (
     '7. Eco Rewards',
-    'Eco Points earned through recyclable waste pickups have no cash value and may only be redeemed as discounts on future BinLink bookings. Points expire after 12 months of account inactivity.',
+    'Eco Points earned through recyclable waste pickups have no cash value and may only be redeemed as discounts on future BinLink Eco bookings. Points expire after 12 months of account inactivity.',
   ),
   (
     '8. Liability',
-    'BinLink\'s liability is limited to the amount paid for the disputed booking. We are not liable for indirect damages, missed pickups due to force majeure, or disputes between users and Collectors that arise outside the app.',
+    'BinLink Eco\'s liability is limited to the amount paid for the disputed booking. We are not liable for indirect damages, missed pickups due to force majeure, or disputes between users and Collectors that arise outside the app.',
   ),
   (
     '9. Account Termination',
-    'BinLink reserves the right to suspend or terminate any account that violates these terms, engages in fraudulent activity, or abuses the platform or its Collectors.',
+    'BinLink Eco reserves the right to suspend or terminate any account that violates these terms, engages in fraudulent activity, or abuses the platform or its Collectors.',
   ),
   (
     '10. Governing Law',

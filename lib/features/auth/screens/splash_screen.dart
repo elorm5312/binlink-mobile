@@ -152,7 +152,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                   // App name with shimmer
                   _ShimmerText(
-                    text: _isCollector ? 'BinLink' : 'BinLink',
+                    text: 'BinLink Eco',
                     shimmerAnim: _shimmerAnim,
                     isCollector: _isCollector,
                   ),
@@ -203,7 +203,7 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'BinLink Ghana',
+                    'BinLink Eco Ghana',
                     style: TextStyle(
                       fontFamily: 'PlusJakartaSans',
                       fontSize: 12,
@@ -461,10 +461,10 @@ class _ShimmerText extends StatelessWidget {
         text,
         style: TextStyle(
           fontFamily: 'PlusJakartaSans',
-          fontSize: 42,
+          fontSize: 36,
           fontWeight: FontWeight.w900,
           color: isCollector ? Colors.white : const Color(0xFF0B3B2E),
-          letterSpacing: 3,
+          letterSpacing: 1.5,
         ),
       ),
     );

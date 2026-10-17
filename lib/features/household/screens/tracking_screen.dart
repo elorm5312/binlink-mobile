@@ -376,7 +376,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
       builder: (d) => AlertDialog(
         title: const Text('Send SOS alert?'),
         content: const Text(
-            'This immediately alerts BinLink support with your live location and pickup details. Use only in an emergency.'),
+            'This immediately alerts BinLink Eco support with your live location and pickup details. Use only in an emergency.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Cancel')),
           FilledButton(

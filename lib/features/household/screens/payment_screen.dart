@@ -258,7 +258,7 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
           backgroundColor: HouseholdColors.card,
           title: Text('Negotiate price', style: HouseholdType.title),
           content: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text('Enter the price (GHS) you want to propose. BinLink will review it.',
+            Text('Enter the price (GHS) you want to propose. BinLink Eco will review it.',
                 style: HouseholdType.caption),
             const SizedBox(height: 14),
             TextField(
@@ -600,7 +600,7 @@ class PaymentSuccessScreen extends StatelessWidget {
                   Text('Payment confirmed', style: HouseholdType.hero, textAlign: TextAlign.center),
                   const SizedBox(height: 8),
                   Text(
-                    'Your booking is synced with BinLink and ready for live tracking.',
+                    'Your booking is synced with BinLink Eco and ready for live tracking.',
                     style: HouseholdType.body.copyWith(color: HouseholdColors.gray),
                     textAlign: TextAlign.center,
                   ),

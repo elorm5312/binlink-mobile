@@ -113,7 +113,7 @@ class CallService extends ChangeNotifier {
     _reset();
     callId = id;
     bookingId = data['bookingId'] as String?;
-    peerName = (data['fromName'] as String?) ?? 'BinLink';
+    peerName = (data['fromName'] as String?) ?? 'BinLink Eco';
     isCaller = false;
     _setIce(data['iceServers']);
     phase = CallPhase.incoming;

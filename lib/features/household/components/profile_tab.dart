@@ -29,7 +29,7 @@ class ProfileTab extends StatelessWidget {
               ),
               const SizedBox(width: 16),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(user?.fullName ?? 'BinLink household', style: HouseholdType.title),
+                Text(user?.fullName ?? 'BinLink Eco household', style: HouseholdType.title),
                 const SizedBox(height: 4),
                 Text(user?.email ?? 'Manage your account and preferences', style: HouseholdType.caption),
               ])),
@@ -80,7 +80,7 @@ void _showRateDialog(BuildContext context) {
         builder: (context, setState) => AlertDialog(
           backgroundColor: HouseholdColors.card,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-          title: Text('Rate BinLink', style: HouseholdType.title),
+          title: Text('Rate BinLink Eco', style: HouseholdType.title),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

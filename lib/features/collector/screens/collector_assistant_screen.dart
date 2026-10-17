@@ -40,7 +40,7 @@ class _CollectorAssistantScreenState extends State<CollectorAssistantScreen> {
   void initState() {
     super.initState();
     _messages.add(_BotMessage(
-      "Hi 👋 I'm your BinLink assistant. Ask me anything, or tap a topic below. "
+      "Hi 👋 I'm your BinLink Eco assistant. Ask me anything, or tap a topic below. "
       'For account-specific issues, I can connect you to dispatch.',
       fromBot: true,
     ));

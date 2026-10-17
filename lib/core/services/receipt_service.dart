@@ -13,7 +13,7 @@ class ReceiptService {
     final file = await createReceiptFile(booking);
     await Share.shareXFiles(
       [XFile(file.path)],
-      subject: 'BinLink Pickup Receipt',
+      subject: 'BinLink Eco Pickup Receipt',
     );
   }
 

@@ -10,8 +10,8 @@ class AppStrings {
   const AppStrings({this.isFrench = false});
 
   // ── Auth ──────────────────────────────────────────────────────────────────
-  String get appName              => isFrench ? 'BinLink' : 'BinLink';
-  String get welcome              => isFrench ? 'Bienvenue sur BinLink' : 'Welcome to BinLink';
+  String get appName              => isFrench ? 'BinLink Eco' : 'BinLink Eco';
+  String get welcome              => isFrench ? 'Bienvenue sur BinLink Eco' : 'Welcome to BinLink Eco';
   String get signIn               => isFrench ? 'Se connecter' : 'Sign In';
   String get signUp               => isFrench ? 'S\'inscrire' : 'Sign Up';
   String get continueWithGoogle   => isFrench ? 'Continuer avec Google' : 'Continue with Google';

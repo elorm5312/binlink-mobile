@@ -87,7 +87,7 @@ class _CollectorNotificationsScreenState extends State<CollectorNotificationsScr
                 ),
                 const SizedBox(width: 16),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(user?.fullName ?? 'BinLink collector', style: CollectorType.title),
+                  Text(user?.fullName ?? 'BinLink Eco collector', style: CollectorType.title),
                   const SizedBox(height: 4),
                   Text(user?.vehiclePlate ?? 'Vehicle pending', style: CollectorType.caption),
                 ])),

@@ -11,6 +11,6 @@ class FlavorConfig {
       ? 'Waste collection, on demand'
       : 'Earn by collecting waste';
   static String get registerSubtitle => isHousehold
-      ? 'Join BinLink and start scheduling pickups'
-      : 'Join BinLink and start earning by collecting waste';
+      ? 'Join BinLink Eco and start scheduling pickups'
+      : 'Join BinLink Eco and start earning by collecting waste';
 }
