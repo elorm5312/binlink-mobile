@@ -165,6 +165,18 @@ class CollectorProvider extends ChangeNotifier {
       } catch (_) {}
     });
 
+    // Admin set this collector offline from the control centre.
+    SocketService.on('collector:forced_offline', (_) {
+      if (!_isOnline) return;
+      _isOnline = false;
+      SocketService.goOffline();
+      _stopLocationBroadcast();
+      BackgroundLocationService.stop();
+      _pendingRequests.clear();
+      _error = 'BinLink Eco support set you offline. Go online again when you are ready.';
+      notifyListeners();
+    });
+
     // Truck-full warning — backend emits at ≥90% load with the nearest dumpsite.
     SocketService.on('capacity:warning', (data) {
       try {

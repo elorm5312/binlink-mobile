@@ -1,7 +1,10 @@
+import 'dart:io' show Platform;
+
 import 'package:dio/dio.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import '../config/app_flavor.dart';
 import '../config/env.dart';
+import '../config/app_version.dart';
 import '../storage/secure_storage.dart';
 import '../navigation/nav_service.dart';
 import '../services/offline_action_queue_service.dart';
@@ -35,6 +38,9 @@ class ApiClient {
         // can heal the account's role instantly if it got flipped by the
         // other app (one account used in both apps → 403 Access denied).
         'x-app-role': FlavorConfig.defaultRole,
+        // Shown in the admin panel next to each person (helps support).
+        'x-app-version': '${FlavorConfig.appName} $kAppVersion',
+        'x-platform': Platform.isIOS ? 'ios' : 'android',
       },
     ));
 

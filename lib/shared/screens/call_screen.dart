@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/network/api_client.dart';
 import '../../core/services/call_service.dart';
 import '../../core/services/phone_launcher.dart';
 import '../../core/config/app_flavor.dart';
@@ -162,7 +163,9 @@ class _CallScreenState extends State<CallScreen> {
             label: const Text('Call their phone instead', style: TextStyle(fontWeight: FontWeight.w700)),
             onPressed: () {
               final phone = _call.peerPhone;
+              final bookingId = _call.bookingId;
               _close();
+              logPhoneCall(bookingId);
               PhoneLauncher.call(phone);
             },
           ),
@@ -312,10 +315,18 @@ Future<void> showCallOptions(
   if (choice == null || !context.mounted) return;
   final messenger = ScaffoldMessenger.of(context);
   if (choice == 'phone') {
+    logPhoneCall(bookingId);
     final ok = await PhoneLauncher.call(peerPhone);
     if (!ok) messenger.showSnackBar(const SnackBar(content: Text('Could not open the phone dialer.')));
     return;
   }
   final error = await CallService.instance.start(bookingId: bookingId!, peerName: peerName, peerPhone: peerPhone);
   if (error != null) messenger.showSnackBar(SnackBar(content: Text(error)));
+}
+
+/// Records a "call through the phone network" tap so the admin's call history
+/// is complete. Fire-and-forget: never blocks the dialer.
+void logPhoneCall(String? bookingId) {
+  if (bookingId == null) return;
+  ApiClient.post('/api/calls/phone', {'bookingId': bookingId}).then((_) {}, onError: (_) {});
 }
