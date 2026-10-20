@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -5,6 +7,13 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
 }
+
+// Play upload key (android/key.properties, gitignored). Missing file -> debug signing.
+val keyProps = Properties().apply {
+    val f = rootProject.file("key.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+val hasUploadKey = keyProps.getProperty("storeFile") != null
 
 android {
     // namespace must match the Kotlin package of MainActivity.kt (com.binlink.binlink_mobile)
@@ -49,18 +58,18 @@ android {
 
     signingConfigs {
         create("release") {
-            // Keystore decoded from KEYSTORE_BASE64 secret by CI — placed at android/app/keystore.jks
-            storeFile = file("keystore.jks")
-            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-            keyAlias     = System.getenv("KEYSTORE_ALIAS")    ?: "binlink"
-            keyPassword  = System.getenv("KEY_PASSWORD")      ?: ""
+            if (hasUploadKey) {
+                storeFile = file(keyProps.getProperty("storeFile"))
+                storePassword = keyProps.getProperty("storePassword")
+                keyAlias = keyProps.getProperty("keyAlias")
+                keyPassword = keyProps.getProperty("keyPassword")
+            }
         }
     }
 
     buildTypes {
         release {
-            // Use release keystore if it exists (CI); fall back to debug for local builds
-            signingConfig = if (file("keystore.jks").exists())
+            signingConfig = if (hasUploadKey)
                 signingConfigs.getByName("release")
             else
                 signingConfigs.getByName("debug")

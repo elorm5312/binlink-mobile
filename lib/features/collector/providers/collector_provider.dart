@@ -282,7 +282,8 @@ class CollectorProvider extends ChangeNotifier {
   void _startLocationBroadcast() {
     _locationSub?.cancel();
     DateTime lastUiNotify = DateTime.fromMillisecondsSinceEpoch(0);
-    _locationSub = LocationService.getPositionStream().listen((pos) async {
+    _locationSub = LocationService.getPositionStream(background: true)
+        .listen((pos) async {
       _currentLat = pos.latitude;
       _currentLng = pos.longitude;
       _currentHeading = pos.heading;

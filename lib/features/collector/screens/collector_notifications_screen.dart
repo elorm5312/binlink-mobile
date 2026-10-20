@@ -13,6 +13,7 @@ import 'collector_assistant_screen.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/components/binlink_avatar.dart';
+import '../../../shared/components/delete_account_dialog.dart';
 import '../../../shared/components/skeleton.dart';
 import '../../../shared/models/app_notification.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -1074,6 +1075,12 @@ class _CollectorSettingsScreenState extends State<CollectorSettingsScreen> {
         CButton(label: 'Save settings', icon: 'settings', onPressed: _save),
         const SizedBox(height: 12),
         CButton(label: 'Log out', icon: 'support', secondary: true, onPressed: _logout),
+        const SizedBox(height: 24),
+        TextButton(
+          onPressed: () => confirmAndDeleteAccount(context),
+          style: TextButton.styleFrom(foregroundColor: Colors.red),
+          child: const Text('Delete account'),
+        ),
       ]),
     );
   }

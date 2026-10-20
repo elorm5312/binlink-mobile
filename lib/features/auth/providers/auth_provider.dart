@@ -207,6 +207,17 @@ class AuthProvider extends ChangeNotifier {
             '/api/auth/logout', {'refreshToken': refreshToken});
       } catch (_) {}
     }
+    await _clearLocalSession();
+  }
+
+  /// Permanently deletes the signed-in account on the server, then clears
+  /// this device. Throws if the server refuses (e.g. a pickup is still open).
+  Future<void> deleteAccount() async {
+    await ApiClient.delete('/api/profile');
+    await _clearLocalSession();
+  }
+
+  Future<void> _clearLocalSession() async {
     await _firebaseAuth.signOut();
     try {
       await _googleSignIn.signOut();

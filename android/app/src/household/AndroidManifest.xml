@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Geolocator binds this service for all streams; BinLink Eco never runs it in the foreground -->
+    <application>
+        <service
+            android:name="com.baseflow.geolocator.GeolocatorLocationService"
+            tools:remove="android:foregroundServiceType" />
+    </application>
+</manifest>

@@ -35,18 +35,22 @@ class LocationService {
     }
   }
 
-  static Stream<Position> getPositionStream() {
+  /// [background] starts an Android location foreground service, which only
+  /// the collector flavor declares in its manifest.
+  static Stream<Position> getPositionStream({bool background = false}) {
     final settings = switch (defaultTargetPlatform) {
       TargetPlatform.android => AndroidSettings(
           accuracy: LocationAccuracy.high,
           distanceFilter: 10,
           intervalDuration: const Duration(seconds: 30),
-          foregroundNotificationConfig: const ForegroundNotificationConfig(
-            notificationTitle: 'BinLink Collector tracking active',
-            notificationText:
-                'Live route tracking is running in the background.',
-            enableWakeLock: true,
-          ),
+          foregroundNotificationConfig: background
+              ? const ForegroundNotificationConfig(
+                  notificationTitle: 'BinLink Collector tracking active',
+                  notificationText:
+                      'Live route tracking is running in the background.',
+                  enableWakeLock: true,
+                )
+              : null,
         ),
       TargetPlatform.iOS || TargetPlatform.macOS => AppleSettings(
           accuracy: LocationAccuracy.high,
