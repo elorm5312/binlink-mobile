@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../../core/design_system/collector_design_system.dart';
 import '../../../core/services/maps_launcher.dart';
 import '../../../shared/components/binlink_map.dart';
+import '../../../shared/components/slide_to_confirm.dart';
 import '../../../shared/screens/call_screen.dart';
 import '../../../shared/screens/chat_screen.dart';
 import '../providers/collector_provider.dart';
@@ -374,67 +375,22 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
                 }),
                 const SizedBox(height: 10),
               ],
-              CButton(label: _nextLabel(_status), icon: 'navigation', onPressed: () async {
-                final messenger = ScaffoldMessenger.of(context);
-                final navigator = Navigator.of(context);
+              // The two one-way on-site actions (Arrived, Collected) use a
+              // slide-to-confirm; starting navigation stays a normal button.
+              Builder(builder: (_) {
                 final action = _nextAction(_status);
-                final bookingId = widget.booking['id'] as String?;
-                if (bookingId == null) return;
-                double? agreedAmount;
-                // Negotiated pickup: the price is agreed on arrival. If it was
-                // already confirmed by the customer, reuse it at completion;
-                // only prompt here as a fallback when it somehow wasn't set.
-                if (action == 'complete' && _isNegotiated) {
-                  final confirmed = jsonDouble(widget.booking['negotiatedAmount']);
-                  final negStatus = widget.booking['negotiatedStatus'] as String?;
-                  if (negStatus == 'CONFIRMED' && confirmed != null && confirmed > 0) {
-                    agreedAmount = confirmed;
-                  } else {
-                    agreedAmount = await _askAgreedPrice(
-                      initial: confirmed ?? jsonDouble(widget.booking['negotiatedProposal']),
-                    );
-                    if (agreedAmount == null || !mounted) return;
-                  }
-                }
-                // Weight is intentionally not captured (no weighing scale in the field).
-                final ok = await provider.updateStatus(bookingId, action, agreedAmount: agreedAmount);
-                if (!mounted) return;
-                if (!ok) {
-                  messenger.showSnackBar(
-                    SnackBar(content: Text(provider.error ?? 'Could not update status. Try again.')),
+                if (action == 'arrived' || action == 'collected') {
+                  return SlideToConfirm(
+                    label: _nextLabel(_status),
+                    icon: action == 'arrived' ? Icons.location_on : Icons.inventory_2,
+                    onConfirmed: () => _advanceStatus(),
                   );
-                  // Recover from a desync: adopt the server's real status.
-                  final serverStatus = provider.statusForBooking(bookingId);
-                  if (serverStatus != null && serverStatus != _status) {
-                    setState(() => _status = serverStatus);
-                  }
-                  return;
                 }
-                final nextStatus = _nextStatus(_status);
-                setState(() => _status = nextStatus);
-                // Starting the trip → open Google Maps turn-by-turn.
-                if (action == 'on-the-way' || action == 'en-route') {
-                  await _launchNavigation();
-                }
-                // On arrival for a negotiated pickup, immediately prompt the
-                // collector to enter the price agreed face-to-face, unless the
-                // customer has already confirmed one.
-                if (nextStatus == 'ARRIVED' && _isNegotiated) {
-                  final negStatus = widget.booking['negotiatedStatus'] as String?;
-                  final confirmed = jsonDouble(widget.booking['negotiatedAmount']);
-                  if (!(negStatus == 'CONFIRMED' && confirmed != null && confirmed > 0)) {
-                    await _proposeNegotiation(initial: jsonDouble(widget.booking['negotiatedProposal']));
-                  }
-                }
-                if (nextStatus == 'COMPLETED') {
-                  // Wait on site until the household's payment is confirmed.
-                  navigator.pushReplacement(MaterialPageRoute(
-                    builder: (_) => AwaitingPaymentScreen(
-                      bookingId: bookingId,
-                      amount: agreedAmount ?? jsonDouble(widget.booking['totalAmount']),
-                    ),
-                  ));
-                }
+                return CButton(
+                  label: _nextLabel(_status),
+                  icon: 'navigation',
+                  onPressed: () => _advanceStatus(),
+                );
               }),
               if (_enRoute) ...[
                 const SizedBox(height: 10),
@@ -505,24 +461,64 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
 
   String _nextLabel(String s) {
     if (s == 'ACCEPTED' || s == 'ASSIGNED') return 'START NAVIGATION';
-    if (s == 'ON_THE_WAY' || s == 'EN_ROUTE') return 'MARK ARRIVED';
-    if (s == 'ARRIVED') return 'START COLLECTING';
-    if (s == 'COLLECTING') return 'COMPLETE WITH WEIGHT';
-    return 'CLOSE JOB';
+    if (s == 'ON_THE_WAY' || s == 'EN_ROUTE') return 'Slide to mark arrived';
+    if (s == 'ARRIVED' || s == 'COLLECTING') return 'Slide — waste collected';
+    return 'Waiting for payment';
   }
 
   String _nextAction(String s) {
     if (s == 'ACCEPTED' || s == 'ASSIGNED') return 'on-the-way';
     if (s == 'ON_THE_WAY' || s == 'EN_ROUTE') return 'arrived';
-    if (s == 'ARRIVED') return 'collecting';
-    return 'complete';
+    // ARRIVED / COLLECTING → "collected". The household then pays, which
+    // auto-closes the pickup; the collector never marks "complete" directly.
+    return 'collected';
   }
 
   String _nextStatus(String s) {
     if (s == 'ACCEPTED' || s == 'ASSIGNED') return 'ON_THE_WAY';
     if (s == 'ON_THE_WAY' || s == 'EN_ROUTE') return 'ARRIVED';
-    if (s == 'ARRIVED') return 'COLLECTING';
-    return 'COMPLETED';
+    return 'COLLECTED';
+  }
+
+  /// Advance the pickup one step. Returns true on success (used by both the
+  /// navigation button and the slide-to-confirm). After COLLECTED the collector
+  /// waits on the AwaitingPaymentScreen for the household to pay.
+  Future<bool> _advanceStatus() async {
+    final provider = context.read<CollectorProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final action = _nextAction(_status);
+    final bookingId = widget.booking['id'] as String?;
+    if (bookingId == null) return false;
+
+    final ok = await provider.updateStatus(bookingId, action);
+    if (!mounted) return ok;
+    if (!ok) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(provider.error ?? 'Could not update status. Try again.')),
+      );
+      final serverStatus = provider.statusForBooking(bookingId);
+      if (serverStatus != null && serverStatus != _status) {
+        setState(() => _status = serverStatus);
+      }
+      return false;
+    }
+
+    final nextStatus = _nextStatus(_status);
+    setState(() => _status = nextStatus);
+    if (action == 'on-the-way' || action == 'en-route') {
+      await _launchNavigation();
+    }
+    if (nextStatus == 'COLLECTED') {
+      // Waste collected — wait on site until the household pays (which completes it).
+      navigator.pushReplacement(MaterialPageRoute(
+        builder: (_) => AwaitingPaymentScreen(
+          bookingId: bookingId,
+          amount: jsonDouble(widget.booking['totalAmount']),
+        ),
+      ));
+    }
+    return true;
   }
 
   Future<void> _reportException(CollectorProvider provider) async {

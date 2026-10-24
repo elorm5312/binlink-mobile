@@ -136,6 +136,8 @@ class CollectorProvider extends ChangeNotifier {
     _listeningForBookings = true;
     SocketService.on('booking:new', (data) {
       try {
+        // Offline collectors must never receive a job offer.
+        if (!_isOnline) return;
         final booking = Map<String, dynamic>.from(data as Map);
         if (!_pendingRequests.any((r) => r['id'] == booking['id'])) {
           _pendingRequests.insert(0, booking);
@@ -184,6 +186,49 @@ class CollectorProvider extends ChangeNotifier {
         notifyListeners();
       } catch (_) {}
     });
+
+    // Payment received → the pickup is now complete. Move it to completed and
+    // auto-go-offline (user rule: when a pickup is done the collector goes offline).
+    SocketService.on('booking:paid', (data) {
+      try {
+        final id = (data as Map)['bookingId'] as String?;
+        if (id == null) return;
+        final idx = _activePickups.indexWhere((p) => p['id'] == id);
+        if (idx >= 0) {
+          final p = _activePickups.removeAt(idx);
+          p['status'] = 'COMPLETED';
+          p['paymentStatus'] = 'PAID';
+          if (!_completedPickups.any((x) => x['id'] == id)) _completedPickups.insert(0, p);
+        }
+        if (_isOnline) _goOffline();
+        notifyListeners();
+      } catch (_) {}
+    });
+
+    // Live in-app notifications: every backend notification is pushed here so the
+    // notifications list updates in real time (not only on manual refresh).
+    SocketService.on('notification:new', (data) {
+      try {
+        final n = AppNotification.fromJson(Map<String, dynamic>.from(data as Map));
+        if (!_notifications.any((x) => x.id == n.id)) {
+          _notifications.insert(0, n);
+          _unreadNotifications += 1;
+          notifyListeners();
+        }
+      } catch (_) {}
+    });
+  }
+
+  /// Take the collector offline (server + socket + location) without the
+  /// permission dance of toggleOnline. Used by auto-offline and forced-offline.
+  Future<void> _goOffline() async {
+    _isOnline = false;
+    try { await ApiClient.put('/api/profile/online', {'isOnline': false}); } catch (_) {}
+    SocketService.goOffline();
+    _stopLocationBroadcast();
+    BackgroundLocationService.stop();
+    _pendingRequests.clear();
+    notifyListeners();
   }
 
   // ── Capacity / dumpsite routing ─────────────────────────────────────────────
@@ -261,6 +306,9 @@ class CollectorProvider extends ChangeNotifier {
         SocketService.goOnline();
         _startLocationBroadcast();
         BackgroundLocationService.start();
+        // Surface any request that is already waiting the instant we go online,
+        // instead of waiting for the next socket event or 15s poll.
+        await refreshAvailableJobs();
       } else {
         SocketService.goOffline();
         _stopLocationBroadcast();
@@ -327,6 +375,12 @@ class CollectorProvider extends ChangeNotifier {
   /// household photos), or null on failure, so the caller can jump straight
   /// into the active-pickup screen.
   Future<Map<String, dynamic>?> acceptRequest(String bookingId) async {
+    // Offline collectors cannot take jobs (matches the backend guard).
+    if (!_isOnline) {
+      _error = 'Go online to accept pickups.';
+      notifyListeners();
+      return null;
+    }
     try {
       final res = await ApiClient.put('/api/bookings/$bookingId/accept');
       final booking = Map<String, dynamic>.from(res.data['data'] as Map);

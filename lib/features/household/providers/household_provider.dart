@@ -567,8 +567,38 @@ class HouseholdProvider extends ChangeNotifier {
     }
   }
 
+  // Registers the always-on socket listeners (not tied to a booking). Call once
+  // after login. Currently: the live in-app notifications feed.
+  bool _globalListening = false;
+  void listenGlobal() {
+    if (_globalListening) return;
+    _globalListening = true;
+    SocketService.on('notification:new', (data) {
+      try {
+        final n = AppNotification.fromJson(Map<String, dynamic>.from(data as Map));
+        if (!_notifications.any((x) => x.id == n.id)) {
+          _notifications.insert(0, n);
+          _unreadNotifications += 1;
+          notifyListeners();
+        }
+      } catch (_) {}
+    });
+  }
+
   void listenToBooking(String bookingId) {
     SocketService.joinBookingRoom(bookingId);
+
+    // Seed the collector marker from their last known position so the truck is
+    // visible immediately, before the first live 'collector:location' arrives.
+    final seed = _activeBooking?['collector'];
+    if (seed is Map && _collectorLat == null) {
+      final la = jsonDouble(seed['lastLat']);
+      final lo = jsonDouble(seed['lastLng']);
+      if (la != null && lo != null) {
+        _collectorLat = la;
+        _collectorLng = lo;
+      }
+    }
 
     SocketService.on('booking:accepted', (data) {
       try {

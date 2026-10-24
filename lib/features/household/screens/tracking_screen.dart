@@ -161,8 +161,10 @@ class _TrackingScreenState extends State<TrackingScreen> {
       _arrivingBuzzed = false;
     }
 
-    // Auto-prompt a rating the moment the pickup completes.
-    if (const ['COMPLETED', 'COLLECTED'].contains(_status) &&
+    // Auto-prompt a rating only AFTER payment (rating comes after the household
+    // has paid). The pickup auto-completes on payment, so gate on PAID.
+    final isPaid = _booking['paymentStatus'] == 'PAID';
+    if (_status == 'COMPLETED' && isPaid &&
         !_ratingShown && collector != null && _booking['review'] == null) {
       _ratingShown = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {

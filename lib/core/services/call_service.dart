@@ -6,6 +6,8 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import '../navigation/nav_service.dart';
 import '../network/socket_service.dart';
+import '../storage/secure_storage.dart';
+import 'push/call_wake.dart';
 import '../../shared/screens/call_screen.dart';
 import '../config/app_flavor.dart';
 
@@ -50,14 +52,26 @@ class CallService extends ChangeNotifier {
 
   bool get busy => phase != CallPhase.idle && phase != CallPhase.ended;
 
+  /// This device's signed-in user id — used to verify an incoming call is
+  /// actually addressed to us (payload.toId) before ringing.
+  String? _myUserId;
+
   /// Registers the socket listeners once (call at app start).
   void init() {
     if (_listening) return;
     _listening = true;
+    _loadMyId();
     SocketService.on('call:incoming', _onIncoming);
     SocketService.on('call:accepted', _onAccepted);
     SocketService.on('call:signal', _onSignal);
     SocketService.on('call:ended', _onEnded);
+  }
+
+  Future<void> _loadMyId() async {
+    try {
+      final u = await SecureStorage.getUser();
+      _myUserId = u?['id'] as String?;
+    } catch (_) {}
   }
 
   // ── Outgoing ──────────────────────────────────────────────────────────────
@@ -106,11 +120,19 @@ class CallService extends ChangeNotifier {
     if (data is! Map) return;
     final id = data['callId'] as String?;
     if (id == null || id == callId) return; // re-delivery of the call we already show
+    // Only ring if the call is addressed to THIS user. Stops a caller (or a
+    // device signed into the other role) from ringing itself.
+    final toId = data['toId'] as String?;
+    if (toId != null && _myUserId != null && toId != _myUserId) return;
+    // We are the caller placing a call — never ring ourselves for it.
+    if (isCaller && busy) return;
     if (busy) {
       SocketService.emit('call:reject', {'callId': id});
       return;
     }
     _reset();
+    // The in-app ring is taking over — clear any full-screen wake notification.
+    CallWake.clearCall();
     callId = id;
     bookingId = data['bookingId'] as String?;
     peerName = (data['fromName'] as String?) ?? 'BinLink Eco';
@@ -264,6 +286,7 @@ class CallService extends ChangeNotifier {
     if (phase == CallPhase.ended || phase == CallPhase.idle) return;
     endReason = reason;
     phase = CallPhase.ended;
+    CallWake.clearCall();
     _teardown();
     notifyListeners();
   }

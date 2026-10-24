@@ -16,6 +16,7 @@ import '../../shared/components/app_error_view.dart';
 import '../design_system/collector_design_system.dart';
 import '../services/background_location_service.dart';
 import '../services/push/push_manager.dart';
+import '../services/push/call_wake.dart';
 import '../services/offline_action_queue_service.dart';
 import '../network/api_client.dart';
 import '../services/call_service.dart';
@@ -129,6 +130,9 @@ class CoreInitializer {
         badge: true,
         sound: true,
       );
+      // Ring/wake the screen for calls + new jobs while backgrounded or asleep.
+      FirebaseMessaging.onBackgroundMessage(binlinkFcmBackground);
+      await CallWake.ensureInit();
       PushManager.instance.init();
     } catch (e) {
       debugPrint('[Core] Firebase messaging setup failed: $e');

@@ -33,13 +33,29 @@ class PaymentDueNotifier {
     try {
       await _plugin.initialize(const InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-        // Permission is requested by the push setup; don't prompt twice.
         iOS: DarwinInitializationSettings(
           requestAlertPermission: false,
           requestBadgePermission: false,
           requestSoundPermission: false,
         ),
       ));
+
+      // Android: the plugin never created this channel or asked for the Android
+      // 13+ runtime permission itself — so on Android the ongoing "balance due"
+      // notification was silently dropped (iOS worked). Do both explicitly now.
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        final android = _plugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+        if (android != null) {
+          await android.createNotificationChannel(const AndroidNotificationChannel(
+            'payment_due',
+            'Payments due',
+            description: 'Reminds you to pay for a completed pickup',
+            importance: Importance.high,
+          ));
+          try { await android.requestNotificationsPermission(); } catch (_) {}
+        }
+      }
       _ready = true;
     } catch (e) {
       debugPrint('[PaymentDue] init failed: $e');
@@ -60,8 +76,8 @@ class PaymentDueNotifier {
       final amount = jsonDouble(b['totalAmount']) ?? 0;
       final title = 'Make payment now · GHS ${amount.toStringAsFixed(2)}';
       final body = unpaid.length == 1
-          ? 'Your pickup is complete. Open BinLink Eco and tap "Make payment".'
-          : 'You have ${unpaid.length} completed pickups to pay for. Open BinLink Eco.';
+          ? 'Your waste has been collected. Open BinLink Eco and tap "Make payment".'
+          : 'You have ${unpaid.length} pickups to pay for. Open BinLink Eco.';
       final isIos = defaultTargetPlatform == TargetPlatform.iOS;
       if (isIos && _shownOnIos.contains(id)) return;
       await _plugin.show(

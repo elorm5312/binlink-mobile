@@ -51,7 +51,10 @@ class _HouseholdHomeScreenState extends State<HouseholdHomeScreen> with WidgetsB
     // "Make payment" disappears and the booking shows as paid.
     SocketService.on('booking:paid', _onPaid);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ProfileCompletion.ensure(context);
+      if (!mounted) return;
+      ProfileCompletion.ensure(context);
+      // Live in-app notifications feed (registers once).
+      context.read<HouseholdProvider>().listenGlobal();
     });
   }
 
@@ -232,8 +235,19 @@ class _PickupsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<HouseholdProvider>();
+    // Active pickups, plus anything COMPLETED in the last 48h so a just-finished
+    // pickup shows in BOTH Pickups and History (it no longer vanishes from
+    // Pickups the moment it completes).
+    final cutoff = DateTime.now().subtract(const Duration(hours: 48));
+    bool recentlyCompleted(Map b) {
+      if (b['status'] != 'COMPLETED') return false;
+      final raw = b['completedAt'] ?? b['updatedAt'];
+      final when = DateTime.tryParse(raw?.toString() ?? '');
+      return when != null && when.isAfter(cutoff);
+    }
     final bookings = provider.allBookings
-        .where((b) => ['PENDING', 'SEARCHING', 'ASSIGNED', 'ACCEPTED', 'EN_ROUTE', 'ON_THE_WAY', 'ARRIVED', 'COLLECTING', 'COLLECTED'].contains(b['status']))
+        .where((b) => ['PENDING', 'SEARCHING', 'ASSIGNED', 'ACCEPTED', 'EN_ROUTE', 'ON_THE_WAY', 'ARRIVED', 'COLLECTING', 'COLLECTED'].contains(b['status'])
+            || recentlyCompleted(b))
         .toList();
     return SafeArea(
       child: RefreshIndicator(
