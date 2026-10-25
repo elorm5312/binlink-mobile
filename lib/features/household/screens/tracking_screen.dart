@@ -35,9 +35,8 @@ class _TrackingScreenState extends State<TrackingScreen> {
   double _collectorBearing = 0.0;
   ll.LatLng? _prevCollectorPos;
   bool _arrivingBuzzed = false;
-  // The proposal amount we've already auto-opened the confirm sheet for, so a
-  // rebuild doesn't reopen it; re-arms if the collector proposes a new amount.
-  double? _negPromptedProposal;
+  // Guards the one-time auto-open of the "enter agreed price" sheet on arrival.
+  bool _enterPriceShown = false;
   // Captured in initState: looking up providers from dispose() throws.
   late final HouseholdProvider _prov;
 
@@ -106,14 +105,15 @@ class _TrackingScreenState extends State<TrackingScreen> {
 
     final collector = (prov.activeBooking?['collector'] as Map<String, dynamic>?) ?? (_booking['collector'] as Map<String, dynamic>?);
 
-    // Auto-open the confirm-price sheet the moment the collector proposes a
-    // negotiated amount on arrival, so both sides lock in the agreed price.
+    // On arrival, auto-open the enter-price sheet once: the household types the
+    // price the collector told them; the collector then approves it.
     final negStatus = (prov.activeBooking?['negotiatedStatus'] ?? _booking['negotiatedStatus']) as String?;
-    final negProposal = jsonDouble(prov.activeBooking?['negotiatedProposal'] ?? _booking['negotiatedProposal']);
-    if (negStatus == 'PROPOSED' && negProposal != null && _negPromptedProposal != negProposal) {
-      _negPromptedProposal = negProposal;
+    final pricingMode = (prov.activeBooking?['pricingMode'] ?? _booking['pricingMode']) as String?;
+    if (pricingMode == 'NEGOTIATED' && _status == 'ARRIVED' &&
+        negStatus != 'PROPOSED' && negStatus != 'CONFIRMED' && !_enterPriceShown) {
+      _enterPriceShown = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _confirmNegotiation(context, prov, negProposal);
+        if (mounted) _enterNegotiatedPrice(context, prov);
       });
     }
 
@@ -245,7 +245,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
               isFavorite: collector != null && prov.isFavorite(collector['id'] as String? ?? ''),
               onTip: () => _showTipSheet(context, prov),
               onCancel: () => _confirmCancel(context, prov),
-              onConfirmNegotiation: (proposal) => _confirmNegotiation(context, prov, proposal),
+              onEnterPrice: () => _enterNegotiatedPrice(context, prov),
             ),
           ),
         ],
@@ -253,8 +253,10 @@ class _TrackingScreenState extends State<TrackingScreen> {
     );
   }
 
-  Future<void> _confirmNegotiation(BuildContext context, HouseholdProvider prov, double proposal) async {
-    final ctrl = TextEditingController(text: proposal.toStringAsFixed(2));
+  /// On arrival the collector tells the household a price; the household types
+  /// it here. It is sent to the collector to APPROVE before collection.
+  Future<void> _enterNegotiatedPrice(BuildContext context, HouseholdProvider prov) async {
+    final ctrl = TextEditingController();
     final messenger = ScaffoldMessenger.of(context);
     final bookingId = _booking['id'] as String?;
     if (bookingId == null) return;
@@ -268,9 +270,9 @@ class _TrackingScreenState extends State<TrackingScreen> {
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Center(child: Image.asset(HouseholdAssets.negotiateArrival, height: 120, fit: BoxFit.contain)),
           const SizedBox(height: 10),
-          Text('Confirm agreed price', style: HouseholdType.title),
+          Text('Enter the agreed price', style: HouseholdType.title),
           const SizedBox(height: 6),
-          Text('Your collector proposed GHS ${proposal.toStringAsFixed(2)}. Confirm or adjust the amount you both agreed on.',
+          Text('Type the amount your collector told you. They will approve it, then collect your waste.',
               style: HouseholdType.caption),
           const SizedBox(height: 16),
           TextField(
@@ -280,6 +282,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
             style: HouseholdType.title,
             decoration: InputDecoration(
               prefixText: 'GHS ',
+              hintText: 'e.g. 60',
               filled: true,
               fillColor: HouseholdColors.warmWhite,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
@@ -287,7 +290,7 @@ class _TrackingScreenState extends State<TrackingScreen> {
           ),
           const SizedBox(height: 16),
           HButton(
-            label: 'Confirm price',
+            label: 'Send to collector',
             icon: 'rewards',
             onPressed: () {
               final v = double.tryParse(ctrl.text.trim());
@@ -299,10 +302,10 @@ class _TrackingScreenState extends State<TrackingScreen> {
       ),
     );
     if (result == null) return;
-    final ok = await prov.confirmNegotiation(bookingId, amount: result);
+    final ok = await prov.customerNegotiate(bookingId, result);
     if (!mounted) return;
     messenger.showSnackBar(SnackBar(content: Text(
-        ok ? 'Price confirmed — GHS ${result.toStringAsFixed(2)}' : (prov.error ?? 'Could not confirm price'))));
+        ok ? 'Sent GHS ${result.toStringAsFixed(2)} — waiting for collector to approve' : (prov.error ?? 'Could not send price'))));
   }
 
   Future<void> _launchCall(Map<String, dynamic>? collector) => showCallOptions(
@@ -586,7 +589,7 @@ class _BottomCard extends StatelessWidget {
     required this.isFavorite,
     required this.onTip,
     required this.onCancel,
-    required this.onConfirmNegotiation,
+    required this.onEnterPrice,
     this.distanceKm,
   });
   final Map<String, dynamic> booking;
@@ -600,7 +603,7 @@ class _BottomCard extends StatelessWidget {
   final bool isFavorite;
   final VoidCallback onTip;
   final VoidCallback onCancel;
-  final void Function(double proposal) onConfirmNegotiation;
+  final VoidCallback onEnterPrice;
 
   bool get _canCancel => ['SEARCHING', 'ASSIGNED', 'ACCEPTED'].contains(status);
   bool get _isDone    => ['COMPLETED', 'COLLECTED', 'CANCELLED'].contains(status);
@@ -681,33 +684,53 @@ class _BottomCard extends StatelessWidget {
               ]),
             ],
 
-            // Negotiated pricing: collector proposed an amount — customer confirms it.
+            // Negotiated pricing on arrival: household enters the price the
+            // collector told them → collector approves → then collection.
             if (booking['pricingMode'] == 'NEGOTIATED' &&
-                booking['negotiatedStatus'] == 'PROPOSED' &&
-                jsonDouble(booking['negotiatedProposal']) != null) ...[
+                status == 'ARRIVED' &&
+                booking['negotiatedStatus'] != 'CONFIRMED') ...[
               const SizedBox(height: 14),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: HouseholdColors.primary.withAlpha(16),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: HouseholdColors.primary.withAlpha(60)),
-                ),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Collector proposed a price',
-                      style: HouseholdType.caption.copyWith(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 4),
-                  Text('GHS ${jsonDouble(booking['negotiatedProposal'])!.toStringAsFixed(2)}',
-                      style: HouseholdType.number.copyWith(color: HouseholdColors.primary, fontSize: 22, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 10),
-                  HButton(
-                    label: 'Confirm price',
-                    icon: 'rewards',
-                    onPressed: () => onConfirmNegotiation(jsonDouble(booking['negotiatedProposal'])!),
+              Builder(builder: (_) {
+                final neg = booking['negotiatedStatus'] as String?;
+                final proposal = jsonDouble(booking['negotiatedProposal']);
+                if (neg == 'PROPOSED' && proposal != null) {
+                  // Waiting for the collector to approve the price we sent.
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: HouseholdColors.primary.withAlpha(16),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: HouseholdColors.primary.withAlpha(60)),
+                    ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Waiting for collector to approve',
+                          style: HouseholdType.caption.copyWith(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 4),
+                      Text('GHS ${proposal.toStringAsFixed(2)}',
+                          style: HouseholdType.number.copyWith(color: HouseholdColors.primary, fontSize: 22, fontWeight: FontWeight.w700)),
+                    ]),
+                  );
+                }
+                // Not sent yet (or collector rejected) → let them enter/re-enter.
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: HouseholdColors.primary.withAlpha(16),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: HouseholdColors.primary.withAlpha(60)),
                   ),
-                ]),
-              ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(neg == 'REJECTED'
+                            ? 'Collector asked for a different price'
+                            : 'Enter the price your collector gave you',
+                        style: HouseholdType.caption.copyWith(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 10),
+                    HButton(label: 'Enter agreed price', icon: 'rewards', onPressed: onEnterPrice),
+                  ]),
+                );
+              }),
             ],
 
             // Collector marked the pickup completed → household pays (Paystack/MoMo).

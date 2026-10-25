@@ -57,23 +57,10 @@ class _BookScreenState extends State<BookScreen> {
   final List<XFile> _bulkyPhotos = [];
   final _bulkyDescCtrl = TextEditingController();
 
-  // The household sets the price UP FRONT for negotiated / non-bin bookings.
-  final _amountCtrl = TextEditingController();
-
   /// HOUSEHOLD waste has fixed bin-size pricing; everything else (recyclables
-  /// and bulky items) is priced by the household up front.
+  /// and bulky items) is priced by negotiation with the collector on arrival.
   bool get _isFixed => _category == 'HOUSEHOLD';
   bool get _isBulky => _category == 'BULKY';
-
-  /// Whether the household must type an amount (non-fixed category, or a bin
-  /// booking where they chose to set their own price).
-  bool get _needsAmount => _negotiate || !_isFixed;
-
-  /// The amount the household typed, or null if blank/invalid.
-  double? get _enteredAmount {
-    final v = double.tryParse(_amountCtrl.text.trim());
-    return (v != null && v > 0 && v <= 10000) ? v : null;
-  }
 
   // Step 3
   late bool _isImmediate;
@@ -137,7 +124,6 @@ class _BookScreenState extends State<BookScreen> {
     _notesCtrl.dispose();
     _promoCtrl.dispose();
     _bulkyDescCtrl.dispose();
-    _amountCtrl.dispose();
     super.dispose();
   }
 
@@ -205,11 +191,9 @@ class _BookScreenState extends State<BookScreen> {
   bool get _canNext {
     switch (_step) {
       case 1:
-        // Bulky needs at least one photo; negotiated/non-bin bookings need the
-        // household to set their price up front before continuing.
-        if (_isBulky && _bulkyPhotos.isEmpty) return false;
-        if (_needsAmount && _enteredAmount == null) return false;
-        return true;
+        // Negotiated / non-bin bookings carry no price up front — it's agreed
+        // with the collector on arrival. Only the bulky-photo rule gates this.
+        return !_isBulky || _bulkyPhotos.isNotEmpty;
       case 2:
         return _isImmediate
             ? ServiceHours.isOpenNow()
@@ -293,8 +277,8 @@ class _BookScreenState extends State<BookScreen> {
       promoCode: (_isFixed && !_negotiate) ? _promoCode : null,
       pricingMode: (_isFixed && !_negotiate) ? null : 'NEGOTIATED',
       bulkyPhotos: photoUrls,
-      // The household sets the price up front for negotiated / non-bin bookings.
-      negotiatedAmount: _needsAmount ? _enteredAmount : null,
+      // Negotiated price is agreed with the collector on arrival, never at booking.
+      negotiatedAmount: null,
     );
     if (!mounted) return;
     setState(() => _loading = false);
@@ -458,8 +442,6 @@ class _BookScreenState extends State<BookScreen> {
                   isNegotiated: _negotiate,
                   bulkyPhotos: _bulkyPhotos,
                   bulkyDescCtrl: _bulkyDescCtrl,
-                  amountCtrl: _amountCtrl,
-                  onAmountChanged: () => setState(() {}),
                   onBin: (v) => setState(() => _binSize = v),
                   onBags: (v) => setState(() => _extraBags = v),
                   onNegotiate: (v) => setState(() => _negotiate = v),
@@ -487,7 +469,6 @@ class _BookScreenState extends State<BookScreen> {
                 _Step5(
                   category: _category,
                   isNegotiated: _negotiate || !_isFixed,
-                  negotiatedAmount: _needsAmount ? _enteredAmount : null,
                   bulkyPhotoCount: _bulkyPhotos.length,
                   binSize: _binSize,
                   extraBags: _extraBags,
@@ -733,8 +714,6 @@ class _Step2 extends StatelessWidget {
     required this.isNegotiated,
     required this.bulkyPhotos,
     required this.bulkyDescCtrl,
-    required this.amountCtrl,
-    required this.onAmountChanged,
     required this.onBin,
     required this.onBags,
     required this.onNegotiate,
@@ -747,8 +726,6 @@ class _Step2 extends StatelessWidget {
   final bool isNegotiated;
   final List<XFile> bulkyPhotos;
   final TextEditingController bulkyDescCtrl;
-  final TextEditingController amountCtrl;
-  final VoidCallback onAmountChanged;
   final ValueChanged<String> onBin;
   final ValueChanged<int> onBags;
   final ValueChanged<bool> onNegotiate;
@@ -770,25 +747,11 @@ class _Step2 extends StatelessWidget {
           Row(children: [
             Icon(PhosphorIcons.handshake(), color: HouseholdColors.primary, size: 22),
             const SizedBox(width: 12),
-            Expanded(child: Text('Set your price', style: HouseholdType.section.copyWith(color: HouseholdColors.primary))),
+            Expanded(child: Text('Price agreed on arrival', style: HouseholdType.section.copyWith(color: HouseholdColors.primary))),
           ]),
           const SizedBox(height: 8),
-          Text('Enter the amount you want to pay for this pickup. The collector sees it before accepting; you pay after your waste is collected.',
+          Text('No price to enter now. When your collector arrives they tell you a price; you enter it in the app and they approve it — then you pay after the waste is collected.',
               style: HouseholdType.caption),
-          const SizedBox(height: 12),
-          TextField(
-            controller: amountCtrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            onChanged: (_) => onAmountChanged(),
-            decoration: InputDecoration(
-              prefixText: 'GHS ',
-              hintText: 'e.g. 60',
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            ),
-          ),
         ]),
       );
 
@@ -1419,12 +1382,10 @@ class _Step5 extends StatelessWidget {
     required this.promoDiscount,
     required this.promoChecking,
     required this.onApplyPromo,
-    this.negotiatedAmount,
     this.error,
   });
   final String category;
   final bool isNegotiated;
-  final double? negotiatedAmount;
   final int bulkyPhotoCount;
   final String binSize;
   final int extraBags;
@@ -1502,11 +1463,9 @@ class _Step5 extends StatelessWidget {
               Icon(PhosphorIcons.handshake(), color: HouseholdColors.primary, size: 22),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(negotiatedAmount != null
-                    ? 'Your price: GHS ${negotiatedAmount!.toStringAsFixed(2)}'
-                    : 'Set your price', style: HouseholdType.section.copyWith(color: HouseholdColors.primary)),
+                Text('Price agreed on arrival', style: HouseholdType.section.copyWith(color: HouseholdColors.primary)),
                 const SizedBox(height: 2),
-                Text('The collector sees your price before accepting. You pay after your waste is collected.', style: HouseholdType.caption),
+                Text('No price now. When your collector arrives they tell you a price; you enter it and they approve it, then you pay after the pickup.', style: HouseholdType.caption),
               ])),
             ]),
           ),

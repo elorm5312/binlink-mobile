@@ -91,76 +91,6 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
 
   /// Asks the collector for the price agreed with the household. Returns null
   /// if cancelled.
-  Future<double?> _askAgreedPrice({double? initial}) async {
-    final ctrl = TextEditingController(text: initial != null && initial > 0 ? initial.toStringAsFixed(2) : '');
-    String? fieldError;
-    return showDialog<double>(
-      context: context,
-      builder: (d) => StatefulBuilder(
-        builder: (d, setDialogState) => AlertDialog(
-          backgroundColor: CollectorColors.charcoal,
-          title: Text('Agreed price', style: CollectorType.title),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text('Confirm the amount (GHS) agreed with the customer. They pay this in the app after you complete.',
-                style: CollectorType.caption),
-            const SizedBox(height: 14),
-            TextField(
-              controller: ctrl,
-              autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: CollectorType.title,
-              decoration: InputDecoration(
-                prefixText: 'GHS ',
-                prefixStyle: CollectorType.title,
-                hintText: '0.00',
-                errorText: fieldError,
-                filled: true,
-                fillColor: CollectorColors.dark,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ]),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(d), child: const Text('Cancel')),
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: CollectorColors.green),
-              onPressed: () {
-                final v = double.tryParse(ctrl.text.trim());
-                if (v == null || v <= 0) {
-                  setDialogState(() => fieldError = 'Enter a valid amount');
-                  return;
-                }
-                Navigator.pop(d, v);
-              },
-              child: const Text('Confirm'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Collector enters the price agreed with the customer on arrival and sends
-  /// it over for the household to confirm (or counter) in their app before the
-  /// pickup proceeds. Used both by the on-arrival auto-prompt and the manual
-  /// "propose price" button.
-  Future<void> _proposeNegotiation({double? initial}) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final provider = context.read<CollectorProvider>();
-    final amount = await _askAgreedPrice(initial: initial);
-    if (amount == null || !mounted) return;
-    final ok = await provider.proposeNegotiation(widget.booking['id'] as String, amount);
-    if (!mounted) return;
-    if (ok) {
-      setState(() {
-        widget.booking['negotiatedStatus'] = 'PROPOSED';
-        widget.booking['negotiatedProposal'] = amount;
-      });
-    }
-    messenger.showSnackBar(SnackBar(content: Text(
-      ok ? 'Price sent to customer for confirmation' : (provider.error ?? 'Could not send price'))));
-  }
-
   void _openChat() {
     final bookingId = widget.booking['id'] as String?;
     if (bookingId == null) return;
@@ -222,7 +152,19 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
   Widget build(BuildContext context) {
     final lat = jsonDouble(widget.booking['pickupLat']);
     final lng = jsonDouble(widget.booking['pickupLng']);
-    final provider = context.read<CollectorProvider>();
+    // Watch so the screen rebuilds when the customer sends a negotiated price.
+    final provider = context.watch<CollectorProvider>();
+    final bookingId = widget.booking['id'] as String?;
+    // Live negotiation fields come from the provider's active pickup; fall back
+    // to the static booking copy for everything else.
+    final live = provider.activePickups.firstWhere(
+      (p) => p['id'] == bookingId,
+      orElse: () => widget.booking,
+    );
+    final negStatus = (live['negotiatedStatus'] ?? widget.booking['negotiatedStatus']) as String?;
+    final negProposal = jsonDouble(live['negotiatedProposal'] ?? widget.booking['negotiatedProposal']);
+    final negAgreed = jsonDouble(live['negotiatedAmount'] ?? widget.booking['negotiatedAmount']);
+    final priceAgreed = !_isNegotiated || negStatus == 'CONFIRMED';
     return Scaffold(
       backgroundColor: CollectorColors.dark,
       body: Stack(children: [
@@ -353,25 +295,38 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
                 Text(_photoError!, style: CollectorType.caption.copyWith(color: CollectorColors.red)),
               ],
               const SizedBox(height: 16),
-              // Negotiated pricing: collector proposes an amount, customer confirms in-app.
+              // Negotiated pricing: the customer enters the price you told them;
+              // you APPROVE it here before collecting.
               if (_isNegotiated && (_status == 'ARRIVED' || _status == 'COLLECTING')) ...[
                 Builder(builder: (_) {
-                  final st = widget.booking['negotiatedStatus'] as String?;
-                  final proposal = jsonDouble(widget.booking['negotiatedProposal']);
-                  final agreed = jsonDouble(widget.booking['negotiatedAmount']);
-                  if (st == 'CONFIRMED' && agreed != null) {
-                    return _negBanner('Customer confirmed GHS ${agreed.toStringAsFixed(2)}', CollectorColors.green);
+                  if (negStatus == 'CONFIRMED' && negAgreed != null) {
+                    return _negBanner('Price agreed: GHS ${negAgreed.toStringAsFixed(2)}', CollectorColors.green);
                   }
-                  return Column(children: [
-                    if (st == 'PROPOSED' && proposal != null)
-                      _negBanner('Proposed GHS ${proposal.toStringAsFixed(2)} — awaiting customer', CollectorColors.warning),
-                    CButton(
-                      label: st == 'PROPOSED' ? 'RE-PROPOSE PRICE' : 'PROPOSE PRICE TO CUSTOMER',
-                      icon: 'navigation',
-                      secondary: true,
-                      onPressed: () => _proposeNegotiation(initial: proposal),
-                    ),
-                  ]);
+                  if (negStatus == 'PROPOSED' && negProposal != null) {
+                    // Customer sent a price — approve or reject.
+                    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      _negBanner('Customer says GHS ${negProposal.toStringAsFixed(2)}', CollectorColors.warning),
+                      const SizedBox(height: 8),
+                      Row(children: [
+                        Expanded(child: CButton(
+                          label: 'APPROVE', icon: 'navigation',
+                          onPressed: () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            final cp = context.read<CollectorProvider>();
+                            final ok = await cp.approveNegotiation(bookingId!, accept: true);
+                            if (!ok) messenger.showSnackBar(SnackBar(content: Text(cp.error ?? 'Could not approve')));
+                          },
+                        )),
+                        const SizedBox(width: 10),
+                        Expanded(child: CButton(
+                          label: 'REJECT', icon: 'help', secondary: true,
+                          onPressed: () => context.read<CollectorProvider>().approveNegotiation(bookingId!, accept: false),
+                        )),
+                      ]),
+                    ]);
+                  }
+                  // No price yet — ask the customer to enter the agreed amount.
+                  return _negBanner('Tell the customer the price — they enter it in their app', CollectorColors.warning);
                 }),
                 const SizedBox(height: 10),
               ],
@@ -379,6 +334,10 @@ class _ActivePickupScreenState extends State<ActivePickupScreen> {
               // slide-to-confirm; starting navigation stays a normal button.
               Builder(builder: (_) {
                 final action = _nextAction(_status);
+                // Negotiated pickup can't be collected until the price is agreed.
+                if (action == 'collected' && !priceAgreed) {
+                  return _negBanner('Approve the price above before you can collect', CollectorColors.gray);
+                }
                 if (action == 'arrived' || action == 'collected') {
                   return SlideToConfirm(
                     label: _nextLabel(_status),

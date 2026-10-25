@@ -205,6 +205,27 @@ class CollectorProvider extends ChangeNotifier {
       } catch (_) {}
     });
 
+    // Negotiation: household entered a price on arrival (PROPOSED) or it was
+    // confirmed/rejected — keep the active pickup's negotiated fields in sync.
+    SocketService.on('booking:negotiation', (data) {
+      try {
+        final d = Map<String, dynamic>.from(data as Map);
+        final id = d['bookingId'] as String?;
+        if (id == null) return;
+        final idx = _activePickups.indexWhere((p) => p['id'] == id);
+        if (idx >= 0) {
+          _activePickups[idx] = {
+            ..._activePickups[idx],
+            if (d['status'] != null) 'negotiatedStatus': d['status'],
+            if (d['proposal'] != null) 'negotiatedProposal': d['proposal'],
+            if (d['amount'] != null) 'negotiatedAmount': d['amount'],
+            if (d['amount'] != null) 'totalAmount': d['amount'],
+          };
+          notifyListeners();
+        }
+      } catch (_) {}
+    });
+
     // Live in-app notifications: every backend notification is pushed here so the
     // notifications list updates in real time (not only on manual refresh).
     SocketService.on('notification:new', (data) {
@@ -505,6 +526,35 @@ class CollectorProvider extends ChangeNotifier {
       return false;
     } catch (e) {
       _error = 'Network error — price not sent';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Collector approves (or rejects) the price the household entered on arrival.
+  /// Approving sets the agreed total; only then can the collector collect.
+  Future<bool> approveNegotiation(String bookingId, {bool accept = true}) async {
+    _error = null;
+    try {
+      final res = await ApiClient.post('/api/bookings/$bookingId/negotiate/approve', {'accept': accept});
+      final data = res.data['data'] as Map?;
+      final idx = _activePickups.indexWhere((p) => p['id'] == bookingId);
+      if (idx >= 0 && data != null) {
+        _activePickups[idx] = {
+          ..._activePickups[idx],
+          'negotiatedStatus': data['negotiatedStatus'],
+          if (data['negotiatedAmount'] != null) 'negotiatedAmount': data['negotiatedAmount'],
+          if (data['negotiatedAmount'] != null) 'totalAmount': data['negotiatedAmount'],
+        };
+      }
+      notifyListeners();
+      return true;
+    } on DioException catch (e) {
+      _error = e.response?.data?['error'] ?? 'Failed to approve price';
+      notifyListeners();
+      return false;
+    } catch (_) {
+      _error = 'Network error — try again';
       notifyListeners();
       return false;
     }
