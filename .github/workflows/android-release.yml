@@ -2,6 +2,16 @@ name: Android Play Store bundles
 
 on:
   workflow_dispatch:
+    inputs:
+      track:
+        description: 'Send both apps to this Google Play track (none = only build the files)'
+        type: choice
+        options: [internal, alpha, none]
+        default: internal
+      notes:
+        description: 'What changed (shown to testers, max 500 characters)'
+        type: string
+        default: 'Bug fixes and improvements.'
 
 permissions:
   contents: read
@@ -46,11 +56,18 @@ jobs:
       - name: Dependencies
         run: flutter pub get --suppress-analytics
 
+      # Google Play refuses a build number it has seen before, so every run gets a new, higher one
+      # (1000 + run number; the first Play upload was 31). The version name stays from pubspec.yaml.
+      - name: Pick build number
+        run: |
+          echo "BUILD_NUMBER=$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+          echo "BUILD_NAME=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)" >> "$GITHUB_ENV"
+
       - name: Build BinLink Eco AAB
-        run: flutter build appbundle --release --flavor household -t lib/main_household.dart --suppress-analytics
+        run: flutter build appbundle --release --flavor household -t lib/main_household.dart --build-name "$BUILD_NAME" --build-number "$BUILD_NUMBER" --suppress-analytics
 
       - name: Build BinLink Collector AAB
-        run: flutter build appbundle --release --flavor collector -t lib/main_collector.dart --suppress-analytics
+        run: flutter build appbundle --release --flavor collector -t lib/main_collector.dart --build-name "$BUILD_NAME" --build-number "$BUILD_NUMBER" --suppress-analytics
 
       - name: Verify release signing
         run: |
@@ -61,7 +78,7 @@ jobs:
               echo "ERROR: $f is debug-signed"; exit 1
             fi
           done
-          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          VERSION="$BUILD_NAME+$BUILD_NUMBER"
           mkdir -p out
           cp build/app/outputs/bundle/householdRelease/app-household-release.aab "out/BinLink-Eco-$VERSION.aab"
           cp build/app/outputs/bundle/collectorRelease/app-collector-release.aab "out/BinLink-Collector-$VERSION.aab"
@@ -72,3 +89,41 @@ jobs:
           name: play-store-aabs
           path: out/*.aab
           retention-days: 14
+
+      # ---- Upload to Google Play (needs the PLAY_SERVICE_ACCOUNT_JSON secret) ----
+      - name: Check Play upload settings
+        id: play
+        if: ${{ inputs.track != 'none' }}
+        env:
+          PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          if [ -z "$PLAY_JSON" ]; then
+            echo "::warning::PLAY_SERVICE_ACCOUNT_JSON is not set, so the bundles were built but not uploaded."
+            echo "upload=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          mkdir -p whatsnew
+          printf '%s' "${NOTES:0:500}" > whatsnew/whatsnew-en-US
+          echo "upload=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload BinLink Eco to Google Play
+        if: ${{ steps.play.outputs.upload == 'true' }}
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.binlink.eco
+          releaseFiles: out/BinLink-Eco-*.aab
+          track: ${{ inputs.track }}
+          status: completed
+          whatsNewDirectory: whatsnew
+
+      - name: Upload BinLink Collector to Google Play
+        if: ${{ steps.play.outputs.upload == 'true' }}
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.binlink.collector
+          releaseFiles: out/BinLink-Collector-*.aab
+          track: ${{ inputs.track }}
+          status: completed
+          whatsNewDirectory: whatsnew
