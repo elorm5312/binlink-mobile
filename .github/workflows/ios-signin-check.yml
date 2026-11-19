@@ -1,0 +1,22 @@
+name: iOS Sign in with Apple setup
+
+# Manual: switches on Sign in with Apple for both App IDs (about a minute).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apple-signin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.ASC_KEY_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          python3 -m venv /tmp/asc && /tmp/asc/bin/pip install -q pyjwt cryptography
+          /tmp/asc/bin/python .github/scripts/asc_apple_signin.py com.binlink.eco com.binlink.collector

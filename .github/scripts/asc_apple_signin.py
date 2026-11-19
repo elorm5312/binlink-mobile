@@ -38,10 +38,10 @@ def call(method, path, body=None):
 
 failed = False
 for identifier in sys.argv[1:]:
-    s, b = call("GET", "/bundleIds?filter[identifier]=%s&limit=20" % identifier)
+    s, b = call("GET", "/bundleIds?filter%%5Bidentifier%%5D=%s&limit=20" % identifier)
     match = [d for d in b.get("data", []) if d["attributes"]["identifier"] == identifier]
     if s != 200 or not match:
-        print("::error::App ID %s not found (%s)" % (identifier, s))
+        print("::error::App ID %s not found (%s): %s" % (identifier, s, json.dumps(b.get("errors", b))[:600]))
         failed = True
         continue
     rid = match[0]["id"]
