@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../../core/config/app_flavor.dart';
 import '../../../core/design_system/collector_design_system.dart';
@@ -57,6 +59,34 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _loginApple() async {
+    final auth = context.read<AuthProvider>();
+    final ok = await auth.loginWithApple(role: FlavorConfig.defaultRole);
+    if (!mounted) return;
+    if (ok) {
+      Navigator.pushReplacementNamed(context, _homeRouteFor(auth));
+    } else if (auth.error != null) {
+      _snack(auth.error!);
+    }
+  }
+
+  bool get _showApple => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+  Widget _appleButton(AuthProvider auth, {required bool dark}) => Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: SizedBox(
+          height: 52,
+          width: double.infinity,
+          child: SignInWithAppleButton(
+            onPressed: auth.loading ? () {} : _loginApple,
+            text: 'Sign in with Apple',
+            height: 52,
+            style: dark ? SignInWithAppleButtonStyle.white : SignInWithAppleButtonStyle.black,
+            borderRadius: const BorderRadius.all(Radius.circular(14)),
+          ),
+        ),
+      );
+
   void _snack(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating));
 
   @override
@@ -91,6 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 HButton(label: 'Continue', icon: 'security', loading: auth.loading, onPressed: _loginEmail),
                 const SizedBox(height: 12),
                 GoogleSignInButton(onPressed: _loginGoogle, loading: auth.loading),
+                if (_showApple) _appleButton(auth, dark: false),
                 const SizedBox(height: 22),
                 Center(child: TextButton(onPressed: () => Navigator.pushNamed(context, '/register'), child: Text('Create a BinLink Eco account', style: HouseholdType.body.copyWith(color: HouseholdColors.forest, fontWeight: FontWeight.w700)))),
               ],
@@ -127,6 +158,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 CButton(label: 'SIGN IN', icon: 'security', loading: auth.loading, onPressed: _loginEmail),
                 const SizedBox(height: 12),
                 GoogleSignInButton(onPressed: _loginGoogle, loading: auth.loading, dark: true, label: 'Sign in with Google'),
+                if (_showApple) _appleButton(auth, dark: true),
                 const SizedBox(height: 24),
                 Center(child: TextButton(onPressed: () => Navigator.pushNamed(context, '/register'), child: Text('Register as a collector', style: CollectorType.body.copyWith(color: CollectorColors.green, fontWeight: FontWeight.w800)))),
               ],

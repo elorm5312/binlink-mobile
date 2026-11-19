@@ -1,9 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:dio/dio.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/storage/secure_storage.dart';
@@ -179,6 +183,62 @@ class AuthProvider extends ChangeNotifier {
     } finally {
       _setLoading(false);
     }
+  }
+
+  // ── Sign in with Apple (iPhone) ──────────────────────────────
+  // Apple requires it on iOS whenever Google sign-in is offered (App Review 4.8).
+  // Apple only shares the person's name the first time they sign in, and may hide
+  // their email; the backend accepts a null email and needs just a name.
+
+  Future<bool> loginWithApple({String role = 'HOUSEHOLD'}) async {
+    _setLoading(true);
+    _error = null;
+    try {
+      final rawNonce = _randomNonce();
+      final apple = await SignInWithApple.getAppleIDCredential(
+        scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName],
+        nonce: sha256.convert(utf8.encode(rawNonce)).toString(),
+      );
+      final credential = OAuthProvider('apple.com').credential(
+        idToken: apple.identityToken,
+        rawNonce: rawNonce,
+        accessToken: apple.authorizationCode,
+      );
+      final cred = await _firebaseAuth.signInWithCredential(credential);
+      final appleName = [apple.givenName, apple.familyName]
+          .where((p) => p != null && p.trim().isNotEmpty)
+          .join(' ')
+          .trim();
+      if (appleName.isNotEmpty && (cred.user!.displayName ?? '').isEmpty) {
+        try { await cred.user!.updateDisplayName(appleName); } catch (_) {}
+      }
+      final idToken = await cred.user!.getIdToken(true);
+      final name = appleName.isNotEmpty
+          ? appleName
+          : (cred.user!.displayName?.trim().isNotEmpty == true ? cred.user!.displayName! : 'BinLink user');
+      return await _firebaseExchange(idToken!, fullName: name, role: role);
+    } on SignInWithAppleAuthorizationException catch (e) {
+      // Closing the Apple sheet is not an error.
+      _error = e.code == AuthorizationErrorCode.canceled ? null : 'Apple sign-in failed. Please try again.';
+      return false;
+    } on FirebaseAuthException catch (e) {
+      _error = _firebaseError(e);
+      return false;
+    } on DioException catch (e) {
+      _error = _extractError(e);
+      return false;
+    } catch (_) {
+      _error = 'An unexpected error occurred during Apple sign-in.';
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  static String _randomNonce([int length = 32]) {
+    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final rnd = Random.secure();
+    return List.generate(length, (_) => chars[rnd.nextInt(chars.length)]).join();
   }
 
   // ── Password reset ───────────────────────────────────────────
