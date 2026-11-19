@@ -54,6 +54,11 @@ jobs:
           flutter pub get
           cd ios && pod install --repo-update
 
+      - name: Enable Sign in with Apple on the App IDs
+        run: |
+          python3 -m venv /tmp/asc && /tmp/asc/bin/pip install -q pyjwt cryptography
+          /tmp/asc/bin/python .github/scripts/asc_apple_signin.py com.binlink.eco com.binlink.collector
+
       - name: Fetch signing certificate + App Store profiles
         run: |
           keychain initialize
