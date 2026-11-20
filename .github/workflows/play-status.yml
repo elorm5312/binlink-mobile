@@ -1,0 +1,22 @@
+name: Play status
+
+# Manual, read-only: shows each Play track and release for both apps (about a minute).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - env:
+          PLAY_KEY: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          python3 -m venv /tmp/p && /tmp/p/bin/pip install -q pyjwt cryptography
+          printf '%s' "$PLAY_KEY" > /tmp/key.json
+          /tmp/p/bin/python .github/scripts/play_status.py /tmp/key.json com.binlink.eco com.binlink.collector
+          rm -f /tmp/key.json
