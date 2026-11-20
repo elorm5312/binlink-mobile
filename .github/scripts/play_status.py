@@ -10,7 +10,9 @@ tok = json.load(urllib.request.urlopen(urllib.request.Request("https://oauth2.go
 B = "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/"
 def call(m, u):
     r = urllib.request.Request(u, method=m, headers={"Authorization": "Bearer " + tok})
-    try: return 200, json.load(urllib.request.urlopen(r))
+    try:
+        raw = urllib.request.urlopen(r).read()
+        return 200, json.loads(raw) if raw else {}
     except urllib.error.HTTPError as e: return e.code, json.loads(e.read() or b"{}")
 for pkg in sys.argv[2:]:
     print("==", pkg)
