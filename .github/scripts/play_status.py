@@ -24,7 +24,8 @@ for pkg in sys.argv[2:]:
         for r in tr.get("releases", []):
             print("  %-10s %-12s versionCodes=%s name=%s" % (tr["track"], r.get("status"), r.get("versionCodes"), r.get("name")))
     if not t.get("tracks"): print("  no tracks", s, t)
-    for tn in sorted({tr["track"] for tr in t.get("tracks", [])} | {"internal", "alpha"}):
+    for tn in sorted({tr["track"] for tr in t.get("tracks", [])} | {"alpha"}):
         s2, te = call("GET", B + pkg + "/edits/" + e["id"] + "/testers/" + tn)
-        print("  testers[%s]: %s" % (tn, te if s2 == 200 else "%s %s" % (s2, te.get("error", {}).get("message"))))
+        if s2 == 200:
+            print("  testers[%s]: google groups=%d" % (tn, len(te.get("googleGroups", []))))
     call("DELETE", B + pkg + "/edits/" + e["id"])
