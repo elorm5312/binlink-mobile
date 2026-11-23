@@ -90,6 +90,23 @@ jobs:
           path: out/*.aab
           retention-days: 14
 
+      # Full (universal) APKs for sending directly to people; same version as the Play bundles.
+      - name: Build full APKs
+        run: |
+          flutter build apk --release --flavor household -t lib/main_household.dart --build-name "$BUILD_NAME" --build-number "$BUILD_NUMBER" --suppress-analytics
+          flutter build apk --release --flavor collector -t lib/main_collector.dart --build-name "$BUILD_NAME" --build-number "$BUILD_NUMBER" --suppress-analytics
+          VERSION="$BUILD_NAME+$BUILD_NUMBER"
+          mkdir -p apk
+          cp build/app/outputs/flutter-apk/app-household-release.apk "apk/BinLink-Eco-$VERSION.apk"
+          cp build/app/outputs/flutter-apk/app-collector-release.apk "apk/BinLink-Collector-$VERSION.apk"
+          ls -lh apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apks
+          path: apk/*.apk
+          retention-days: 14
+
       # ---- Upload to Google Play (needs the PLAY_SERVICE_ACCOUNT_JSON secret) ----
       - name: Check Play upload settings
         id: play
