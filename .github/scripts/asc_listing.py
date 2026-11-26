@@ -101,20 +101,29 @@ for bundle, cfg in L["apps"].items():
             "sexualContentGraphicAndNudity", "sexualContentOrNudity", "violenceCartoonOrFantasy",
             "violenceRealistic", "violenceRealisticProlongedGraphicOrSadistic")}
         none.update({"gambling": False, "unrestrictedWebAccess": False})
-        patch("ageRatingDeclarations", rid, none, "age rating (core questions)")
         # Newer questions (2025+). Chat with the collector/household is user-to-user messaging.
-        extra = {"messagingAndChat": True, "userGeneratedContent": False, "advertising": False,
-                 "healthOrWellnessTopics": False, "parentalControls": False, "ageAssurance": False,
-                 "lootBox": False, "gunsOrOtherWeapons": "NONE"}
-        for k, v in extra.items():
+        none.update({"messagingAndChat": True, "userGeneratedContent": False, "advertising": False,
+                     "healthOrWellnessTopics": False, "parentalControls": False, "ageAssurance": False,
+                     "lootBox": False, "socialMedia": False, "gunsOrOtherWeapons": "NONE"})
+        for _ in range(4):
             s2, b2 = call("PATCH", "/ageRatingDeclarations/%s" % rid,
-                          {"data": {"type": "ageRatingDeclarations", "id": rid, "attributes": {k: v}}})
+                          {"data": {"type": "ageRatingDeclarations", "id": rid, "attributes": none}})
             if s2 == 200:
-                print("  OK     age rating: %s=%s" % (k, v))
-            elif s2 == 409 and "not" in json.dumps(b2).lower() and "attribute" in json.dumps(b2).lower():
-                print("  skip   age rating: %s (not used by Apple's API yet)" % k)
-            else:
-                report("age rating: %s" % k, s2, b2)
+                print("  OK     age rating (%d questions)" % len(none))
+                break
+            import re
+            missing = set(re.findall(r"attribute '(\w+)' with this request", json.dumps(b2)))
+            unknown = set(re.findall(r"'(\w+)' is not (?:a valid|allowed|an allowed)", json.dumps(b2)))
+            if not missing and not unknown:
+                report("age rating", s2, b2)
+                break
+            print("  retry  age rating: adding %s, dropping %s" % (sorted(missing - set(none)), sorted(unknown)))
+            for k in missing - set(none):
+                none[k] = False
+            for k in unknown:
+                none.pop(k, None)
+        else:
+            report("age rating", s2, b2)
     else:
         report("age rating", s, b)
 
