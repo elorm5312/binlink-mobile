@@ -1,0 +1,32 @@
+name: iOS App Store listing
+
+# Manual: fills in the App Store page for both apps from .github/appstore/listing.json.
+# Never submits for review.
+on:
+  workflow_dispatch:
+    inputs:
+      attach_build:
+        description: 'Also attach the newest processed build of this version'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  listing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.ASC_KEY_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+      DEMO_ECO_USER: ${{ secrets.DEMO_ECO_USER }}
+      DEMO_ECO_PASS: ${{ secrets.DEMO_ECO_PASS }}
+      DEMO_COLLECTOR_USER: ${{ secrets.DEMO_COLLECTOR_USER }}
+      DEMO_COLLECTOR_PASS: ${{ secrets.DEMO_COLLECTOR_PASS }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          python3 -m venv /tmp/asc && /tmp/asc/bin/pip install -q pyjwt cryptography
+          /tmp/asc/bin/python .github/scripts/asc_listing.py ${{ inputs.attach_build && '--attach-build' || '' }}

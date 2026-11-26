@@ -1,0 +1,27 @@
+{
+  "version": "2.1.30",
+  "copyright": "2026 Caleb Elorm Kowuvi",
+  "support_url": "https://elorm5312.github.io/binlink-legal/",
+  "privacy_url": "https://elorm5312.github.io/binlink-legal/",
+  "contact": {"first": "Caleb", "last": "Kowuvi", "phone": "+233233200022", "email": "binlinkeco@gmail.com"},
+  "apps": {
+    "com.binlink.eco": {
+      "name": "BinLink Eco",
+      "subtitle": "On-demand waste pickup",
+      "category": "LIFESTYLE",
+      "keywords": "waste,pickup,garbage,trash,collection,recycling,Ghana,Accra,bin,collector,MoMo,clean",
+      "promo": "Book a waste collector when you need one, follow them on the map, and pay with Mobile Money after the pickup.",
+      "review_notes": "BinLink Eco lets households in Accra, Ghana book a waste collector. Sign-in is required (email, Google or Sign in with Apple). Payment for the pickup is made with Mobile Money (via Paystack) after the collector has completed the pickup; it pays for a real-world service, so no in-app purchase is involved. Location is used to send the collector to the right address. Collectors use the separate BinLink Collector app.",
+      "description": "BinLink Eco is a waste collection app for homes in Ghana. Book a waste collector when you need one and follow their arrival on the map.\n\nHOW IT WORKS\n1. Open the app and set your location\n2. Choose your bin size (Small, Medium or Large)\n3. A nearby collector accepts your request\n4. Track their arrival live on the map\n5. Pay with Mobile Money after the pickup\n\nFEATURES\n- On-demand booking: get a collector when you need one\n- Live tracking: watch your collector arrive on the map\n- Chat and calls: talk directly with your collector\n- Mobile Money: pay with MTN MoMo, Telecel Cash or AirtelTigo Money\n- Wallet: top up and pay faster\n- Price agreement: settle a fair price with your collector\n- Pickup history: see all your past pickups\n- Notifications: stay updated on your pickup status\n\nWHY BINLINK ECO\n- No more missed collection days\n- Clear pricing\n- Verified collectors\n- Cleaner neighbourhoods\n- Support for local waste collectors\n\nAVAILABLE IN\nAccra, Ghana, with more areas coming.\n\nSAFETY\n- Verified collector profiles\n- Payments processed by Paystack\n- In-app emergency SOS button\n- Direct contact with support\n\nAre you a collector? Download BinLink Collector to start earning.\n\nSupport: binlinkeco@gmail.com | 0233200022"
+    },
+    "com.binlink.collector": {
+      "name": "BinLink Collector",
+      "subtitle": "Earn collecting waste",
+      "category": "BUSINESS",
+      "keywords": "waste,collector,pickup,earn,jobs,driver,Ghana,Accra,garbage,trash,recycling,MoMo,income",
+      "promo": "Go online, accept pickup requests from nearby homes, navigate to each job and get paid to your Mobile Money.",
+      "review_notes": "BinLink Collector is the partner app for waste collectors in Accra, Ghana. Sign-in is required (email, Google or Sign in with Apple). Collectors receive pickup requests from households using the BinLink Eco app, navigate to them and are paid by Mobile Money after completing the pickup; this is payment for a real-world service, so no in-app purchase is involved. Location is used while the collector is online to match nearby requests and show the household where the collector is.",
+      "description": "BinLink Collector is the partner app for waste collectors in Ghana. Join the BinLink network and earn by collecting waste from homes in your area.\n\nHOW IT WORKS\n1. Go online when you are ready to work\n2. Receive pickup requests from nearby households\n3. Accept a job and navigate to the location\n4. Complete the pickup and confirm collection\n5. Get paid to your Mobile Money\n\nWORK ON YOUR SCHEDULE\n- Go online or offline any time\n- Set your own hours\n- Earn for every completed pickup\n- Payouts to your MoMo wallet\n\nFEATURES\n- Job alerts: never miss a pickup request\n- Navigation: directions to every pickup\n- Chat and calls: talk with households\n- Earnings dashboard: daily and weekly earnings\n- Price agreement: settle prices with customers\n- Payout history: see every payment\n- Notifications: stay updated on new jobs\n\nREQUIREMENTS\n- Valid Ghana driver's licence\n- Vehicle (truck, tricycle or motorbike)\n- DVLA roadworthy certificate\n- Vehicle insurance\n- Smartphone with internet\n\nVERIFIED AND TRUSTED\n- Background verification\n- Customer ratings\n- Dedicated collector support\n\nOPERATING AREAS\nAccra, Ghana, with more areas coming.\n\nLooking to book a pickup? Download BinLink Eco.\n\nSupport: binlinkeco@gmail.com | 0233200022"
+    }
+  }
+}
